@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 public class JarResourceLoader {
 
     private final List<String> jarPaths = new ArrayList<>();
+    private static final String PLUGIN_BASE_CLASS_NAME = "net.runelite.client.plugins.Plugin";
 
     /**
      * Handles finding and loading the right JAR files which contain compiled plugin classes. The constructor
@@ -39,37 +40,18 @@ public class JarResourceLoader {
                     .forEach(e -> jarPaths.add(e.toFile().getPath()));
         } catch (IOException e) {
             log.error("Error reading jar file paths: {}", e.getMessage());
-        }
-    }
-
-    public void listClasses(String jarPath, Predicate<String> filter) {
-        try (JarFile jarFile = new JarFile(jarPath)) {
-            Enumeration<JarEntry> entries = jarFile.entries();
-
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                String name = entry.getName();
-
-                // Only include .class files, exclude inner classes
-                if (name.endsWith(".class") && !name.contains("$")) {
-                    // Convert path format to package format
-                    if(filter.test(name)) {
-                        log.info("Jar class: {}", name);
-                    }
-                }
-            }
-        } catch(IOException e) {
-            log.error("IOException thrown while attempting to list jar classes for JAR: {}. Error = {}", jarPath, e.getMessage());
+            e.printStackTrace();
         }
     }
 
     /**
-     * Loads Plugin classes for each discovered JAR file.
+     * Loads the class which extends net.runelite.client.plugins.Plugin for each discovered JAR file.
      * @return List of Plugin classes.
      * @throws MalformedURLException
      */
-    public List<Class<?>> loadPluginClasses(final String packageName) throws MalformedURLException {
-        List<Class<?>> classes = new ArrayList<>();
+    @SuppressWarnings("unchecked")
+    public List<Class<Plugin>> loadPluginClasses(final String packageName) throws MalformedURLException {
+        List<Class<Plugin>> classes = new ArrayList<>();
 
         for (String jarPath : this.jarPaths) {
             URL url = new URL("file:" + jarPath);
@@ -88,10 +70,13 @@ public class JarResourceLoader {
                                     .replace('/', '.');
 
                             Class<?> potentialPluginClass = loader.loadClass(className);
-                            log.info("Loaded class: {}, class extends plugin = {}", className, potentialPluginClass.isAssignableFrom(Plugin.class));
-                            if (potentialPluginClass.isAssignableFrom(Plugin.class)) {
-                                log.info("{} extends the Plugin class from RuneLite. Adding to list.", className);
-                                classes.add(potentialPluginClass);
+                            log.debug("Loaded class: {}", className);
+                            if(potentialPluginClass.getSuperclass() != null) {
+                                if (potentialPluginClass.getSuperclass().getName().equals(PLUGIN_BASE_CLASS_NAME)) {
+                                    log.debug("{} extends the Plugin class from RuneLite. Adding to list.", className);
+                                    // This cast is safe since we verify that the superclass is a runelite Plugin.
+                                    classes.add((Class<Plugin>) potentialPluginClass);
+                                }
                             }
                         }
                     }
