@@ -67,7 +67,6 @@ public class KrakenLoaderPlugin extends Plugin {
     @Override
     protected void shutDown() {}
 
-
     /**
      * Reads the downloaded JAR files, finds the Plugin classes, and invokes RuneLite's plugin manager
      * to side load the plugins.
@@ -77,16 +76,13 @@ public class KrakenLoaderPlugin extends Plugin {
         try {
             List<Class<?>> pluginClasses = jarLoader.loadPluginClasses(PACKAGE_NAME);
             log.info("Loaded {} Kraken plugin class{}.", pluginClasses.size(), pluginClasses.size() > 1 ? "es" : "");
-//            List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
-//
-//            for(Plugin plugin : plugins) {
-//                pluginManager.setPluginEnabled(plugin, true);
-//                pluginManager.startPlugin(plugin);
-//            }
+            List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
 
-//            ExternalPluginManager.loadBuiltin(pluginClasses.toArray(new Class[pluginClasses.size()]));
-//            externalPluginManager.loadExternalPlugins();
-//            externalPluginManager.update();
+            for(Plugin plugin : plugins) {
+                pluginManager.setPluginEnabled(plugin, true);
+                pluginManager.startPlugin(plugin);
+            }
+
         } catch(MalformedURLException e) {
             log.error("URL Malformed. Error = {}", e.getMessage());
             e.printStackTrace();

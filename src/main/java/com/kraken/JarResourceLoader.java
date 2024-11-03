@@ -2,6 +2,7 @@ package com.kraken;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +39,8 @@ public class JarResourceLoader {
             paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".jar"))
                     .forEach(e -> jarPaths.add(e.toFile().getPath()));
+
+            log.info("Found: {} Kraken jar files.", jarPaths.size());
         } catch (IOException e) {
             log.error("Error reading jar file paths: {}", e.getMessage());
             e.printStackTrace();
@@ -49,7 +52,6 @@ public class JarResourceLoader {
      * @return List of Plugin classes.
      * @throws MalformedURLException
      */
-    @SuppressWarnings("unchecked")
     public List<Class<?>> loadPluginClasses(final String packageName) throws MalformedURLException {
         List<Class<?>> classes = new ArrayList<>();
 
@@ -68,13 +70,13 @@ public class JarResourceLoader {
                         if (name.endsWith(".class") && !name.contains("$") && name.startsWith(packageName)) {
                             String className = name.substring(0, name.length() - 6)
                                     .replace('/', '.');
+                            log.debug("Attempting to load class: {}", className);
 
                             Class<?> potentialPluginClass = loader.loadClass(className);
                             log.debug("Loaded class: {}", className);
                             if(potentialPluginClass.getSuperclass() != null) {
                                 if (potentialPluginClass.getSuperclass().getName().equals(PLUGIN_BASE_CLASS_NAME)) {
-                                    log.debug("{} extends the Plugin class from RuneLite. Adding to list.", className);
-                                    // This cast is safe since we verify that the superclass is a runelite Plugin.
+                                    log.debug("Main Plugin Class located: {}", className);
                                     classes.add(potentialPluginClass);
                                 }
                             }
