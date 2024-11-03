@@ -4,10 +4,11 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigDescriptor;
-import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.*;
 import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ExternalPluginsChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginInstantiationException;
@@ -18,6 +19,7 @@ import net.runelite.client.ui.MultiplexingPluginPanel;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
+import net.runelite.client.util.Text;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -33,6 +35,9 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class KrakenLoaderPanel extends PluginPanel {
+
+	private static final String RUNELITE_GROUP_NAME = RuneLiteConfig.class.getAnnotation(ConfigGroup.class).value();
+	private static final String PINNED_PLUGINS_CONFIG_KEY = "krakenPinnedPlugins";
 
     private List<KrakenPluginListItem> pluginList;
     private final JPanel display = new JPanel();
@@ -119,11 +124,9 @@ public class KrakenLoaderPanel extends PluginPanel {
         add(scrollPane, BorderLayout.CENTER);
     }
 
-    public void rebuildPluginList()
-	{
-		for(Plugin p : pluginManager.getPlugins()) {
-			log.info(p.getName());
-		}
+    public void rebuildPluginList() {
+		final List<String> pinnedPlugins = getPinnedPluginNames();
+
 		// populate pluginList with all non-hidden plugins
 		pluginList = Stream.concat(
 			fakePlugins.stream(),
@@ -131,7 +134,7 @@ public class KrakenLoaderPanel extends PluginPanel {
                 // TODO Also filter for Kraken plugins. Need a better way to identify Kraken plugins.
 				.filter(plugin -> {
 					return !plugin.getClass().getAnnotation(PluginDescriptor.class).hidden() &&
-							plugin.getName().equals("AlchemicalHydraPlugin");
+							plugin.getName().equals("Alchemical Hydra");
 				})
 				.map(plugin ->
 				{
@@ -155,13 +158,12 @@ public class KrakenLoaderPanel extends PluginPanel {
 			.map(desc ->
 			{
 				KrakenPluginListItem listItem = new KrakenPluginListItem(this, desc);
-//				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
+				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
 				return listItem;
 			})
 			.sorted(Comparator.comparing(p -> p.getPluginConfig().getName()))
 			.collect(Collectors.toList());
 
-		log.info("Total Kraken Plugins in list: {}", pluginList.size());
 		mainPanel.removeAll();
 		refresh();
 	}
@@ -173,6 +175,7 @@ public class KrakenLoaderPanel extends PluginPanel {
 			if (plugin != null) {
 				listItem.setPluginEnabled(pluginManager.isPluginEnabled(plugin));
 			}
+			mainPanel.add(listItem);
 		});
 
 		int scrollBarPosition = scrollPane.getVerticalScrollBar().getValue();
@@ -215,6 +218,25 @@ public class KrakenLoaderPanel extends PluginPanel {
 		}
 	}
 
+	private List<String> getPinnedPluginNames() {
+		final String config = configManager.getConfiguration(RUNELITE_GROUP_NAME, PINNED_PLUGINS_CONFIG_KEY);
+		if (config == null) {
+			return Collections.emptyList();
+		}
+
+		return Text.fromCSV(config);
+	}
+
+	void savePinnedPlugins() {
+		final String value = pluginList.stream()
+			.filter(KrakenPluginListItem::isPinned)
+			.map(p -> p.getPluginConfig().getName())
+			.collect(Collectors.joining(","));
+
+		configManager.setConfiguration(RUNELITE_GROUP_NAME, PINNED_PLUGINS_CONFIG_KEY, value);
+	}
+
+
 	public void openConfigurationPanel(PluginMetadata metadata) {
 		ConfigPanel panel = configPanelProvider.get();
 		panel.init(metadata);
@@ -241,5 +263,28 @@ public class KrakenLoaderPanel extends PluginPanel {
             e.printStackTrace();
         }
     }
+
+	@Override
+	public Dimension getPreferredSize() {
+		return new Dimension(PANEL_WIDTH + SCROLLBAR_WIDTH, super.getPreferredSize().height);
+	}
+
+	@Override
+	public void onActivate() {
+		super.onActivate();
+		if (searchBar.getParent() != null) {
+			searchBar.requestFocusInWindow();
+		}
+	}
+
+	@Subscribe
+	private void onExternalPluginsChanged(ExternalPluginsChanged ev) {
+		SwingUtilities.invokeLater(this::rebuildPluginList);
+	}
+
+	@Subscribe
+	private void onProfileChanged(ProfileChanged ev) {
+		SwingUtilities.invokeLater(this::rebuildPluginList);
+	}
 
 }

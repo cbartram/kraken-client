@@ -75,10 +75,9 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		pinButton.setPreferredSize(new Dimension(21, 0));
 		add(pinButton, BorderLayout.LINE_START);
 
-		pinButton.addActionListener(e ->
-		{
-//			pluginListPanel.savePinnedPlugins();
-//			pluginListPanel.refresh();
+		pinButton.addActionListener(e -> {
+			pluginListPanel.savePinnedPlugins();
+			pluginListPanel.refresh();
 		});
 
 		final JPanel buttonPanel = new JPanel();
@@ -93,8 +92,7 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 			configButton.setVisible(false);
 			buttonPanel.add(configButton);
 
-			configButton.addActionListener(e ->
-			{
+			configButton.addActionListener(e -> {
 				configButton.setIcon(CONFIG_ICON);
 				openGroupConfigPanel();
 			});
@@ -195,6 +193,4 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 			}
 		});
 	}
-
-
 }

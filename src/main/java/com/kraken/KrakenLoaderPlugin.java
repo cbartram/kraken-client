@@ -58,9 +58,9 @@ public class KrakenLoaderPlugin extends Plugin {
                 .panel(panel)
                 .build();
 
-        panel.rebuildPluginList();
         clientToolbar.addNavigation(navButton);
         loadKrakenPlugins();
+        panel.rebuildPluginList();
     }
 
     @Override
