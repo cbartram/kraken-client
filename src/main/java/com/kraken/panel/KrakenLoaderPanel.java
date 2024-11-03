@@ -1,9 +1,20 @@
 package com.kraken.panel;
 
 import com.google.inject.Inject;
-import net.runelite.client.plugins.config.PluginSearch;
+import com.google.inject.Provider;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigDescriptor;
+import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginInstantiationException;
+import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.DynamicGridLayout;
+import net.runelite.client.ui.MultiplexingPluginPanel;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
@@ -13,22 +24,57 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+@Slf4j
 public class KrakenLoaderPanel extends PluginPanel {
 
+    private List<KrakenPluginListItem> pluginList;
     private final JPanel display = new JPanel();
     private final MaterialTabGroup tabGroup = new MaterialTabGroup(display);
     private final IconTextField searchBar;
     private final JScrollPane scrollPane;
     private final FixedWidthPanel mainPanel;
 
+    private final ConfigManager configManager;
+    private final List<PluginMetadata> fakePlugins = new ArrayList<>();
+    private final Provider<ConfigPanel> configPanelProvider;
+	private final PluginManager pluginManager;
+
+    @Getter
+	private final MultiplexingPluginPanel muxer;
+
     @Inject
-    public KrakenLoaderPanel() {
+    public KrakenLoaderPanel(EventBus eventBus,
+                             PluginManager pluginManager,
+                             ConfigManager configManager,
+                             Provider<ConfigPanel> configPanelProvider) {
         super(false);
+
+        this.configManager = configManager;
+        this.pluginManager = pluginManager;
+        this.configPanelProvider = configPanelProvider;
 
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
         tabGroup.setBorder(new EmptyBorder(5, 0, 0, 0));
+
+        this.muxer = new MultiplexingPluginPanel(this) {
+			@Override
+			protected void onAdd(PluginPanel p) {
+				eventBus.register(p);
+			}
+
+			@Override
+			protected void onRemove(PluginPanel p) {
+				eventBus.unregister(p);
+			}
+		};
 
         searchBar = new IconTextField();
         searchBar.setIcon(IconTextField.Icon.SEARCH);
@@ -73,11 +119,127 @@ public class KrakenLoaderPanel extends PluginPanel {
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    public void rebuildPluginList()
+	{
+		for(Plugin p : pluginManager.getPlugins()) {
+			log.info(p.getName());
+		}
+		// populate pluginList with all non-hidden plugins
+		pluginList = Stream.concat(
+			fakePlugins.stream(),
+			pluginManager.getPlugins().stream()
+                // TODO Also filter for Kraken plugins. Need a better way to identify Kraken plugins.
+				.filter(plugin -> {
+					return !plugin.getClass().getAnnotation(PluginDescriptor.class).hidden() &&
+							plugin.getName().equals("AlchemicalHydraPlugin");
+				})
+				.map(plugin ->
+				{
+					PluginDescriptor descriptor = plugin.getClass().getAnnotation(PluginDescriptor.class);
+					Config config = pluginManager.getPluginConfigProxy(plugin);
+					ConfigDescriptor configDescriptor = config == null ? null : configManager.getConfigDescriptor(config);
+					List<String> conflicts = pluginManager.conflictsForPlugin(plugin).stream()
+						.map(Plugin::getName)
+						.collect(Collectors.toList());
+
+					return new PluginMetadata(
+						descriptor.name(),
+						descriptor.description(),
+						descriptor.tags(),
+						plugin,
+						config,
+						configDescriptor,
+						conflicts);
+				})
+		)
+			.map(desc ->
+			{
+				KrakenPluginListItem listItem = new KrakenPluginListItem(this, desc);
+//				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
+				return listItem;
+			})
+			.sorted(Comparator.comparing(p -> p.getPluginConfig().getName()))
+			.collect(Collectors.toList());
+
+		log.info("Total Kraken Plugins in list: {}", pluginList.size());
+		mainPanel.removeAll();
+		refresh();
+	}
+
+	void refresh() {
+		// update enabled / disabled status of all items
+		pluginList.forEach(listItem -> {
+			final Plugin plugin = listItem.getPluginConfig().getPlugin();
+			if (plugin != null) {
+				listItem.setPluginEnabled(pluginManager.isPluginEnabled(plugin));
+			}
+		});
+
+		int scrollBarPosition = scrollPane.getVerticalScrollBar().getValue();
+
+		onSearchBarChanged();
+		searchBar.requestFocusInWindow();
+		validate();
+
+		scrollPane.getVerticalScrollBar().setValue(scrollBarPosition);
+	}
+
+	void openWithFilter(String filter) {
+		searchBar.setText(filter);
+		onSearchBarChanged();
+		muxer.pushState(this);
+	}
+
     private void onSearchBarChanged() {
         final String text = searchBar.getText();
 //        pluginList.forEach(mainPanel::remove);
 //        PluginSearch.search(pluginList, text).forEach(mainPanel::add);
         revalidate();
+    }
+
+    public void openConfigurationPanel(String configGroup) {
+		for (KrakenPluginListItem pluginListItem : pluginList) {
+			if (pluginListItem.getPluginConfig().getName().equals(configGroup)) {
+				openConfigurationPanel(pluginListItem.getPluginConfig());
+				break;
+			}
+		}
+	}
+
+    public void openConfigurationPanel(Plugin plugin) {
+		for (KrakenPluginListItem pluginListItem : pluginList) {
+			if (pluginListItem.getPluginConfig().getPlugin() == plugin) {
+				openConfigurationPanel(pluginListItem.getPluginConfig());
+				break;
+			}
+		}
+	}
+
+	public void openConfigurationPanel(PluginMetadata metadata) {
+		ConfigPanel panel = configPanelProvider.get();
+		panel.init(metadata);
+		muxer.pushState(this);
+		muxer.pushState(panel);
+	}
+
+    public void startPlugin(Plugin plugin) {
+        pluginManager.setPluginEnabled(plugin, true);
+        try {
+            pluginManager.startPlugin(plugin);
+        } catch (PluginInstantiationException e) {
+            log.error("Failed to start plugin: {}. Error = {}", plugin.getName(), e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void stopPlugin(Plugin plugin) {
+        pluginManager.setPluginEnabled(plugin, false);
+        try {
+            pluginManager.stopPlugin(plugin);
+        } catch (PluginInstantiationException e) {
+            log.error("Failed to stop plugin: {}. Error = {}", plugin.getName(), e.getMessage());
+            e.printStackTrace();
+        }
     }
 
 }
