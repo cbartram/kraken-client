@@ -1,11 +1,8 @@
-package com.kraken;
+package com.kraken.loader;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginManager;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -15,7 +12,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
@@ -66,12 +62,10 @@ public class JarResourceLoader {
                         JarEntry entry = entries.nextElement();
                         String name = entry.getName();
 
-                        // Only include .class files, exclude inner classes
-                        if (name.endsWith(".class") && !name.contains("$") && name.startsWith(packageName)) {
+                        // Load both classes and anonymous inner classes with $1 in the class name
+                        if (name.endsWith(".class") && name.startsWith(packageName)) {
                             String className = name.substring(0, name.length() - 6)
                                     .replace('/', '.');
-                            log.debug("Attempting to load class: {}", className);
-
                             Class<?> potentialPluginClass = loader.loadClass(className);
                             log.debug("Loaded class: {}", className);
                             if(potentialPluginClass.getSuperclass() != null) {

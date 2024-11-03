@@ -3,6 +3,7 @@ package com.kraken;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.kraken.loader.JarResourceLoader;
 import com.kraken.panel.KrakenLoaderPanel;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -82,7 +83,6 @@ public class KrakenLoaderPlugin extends Plugin {
                 pluginManager.setPluginEnabled(plugin, true);
                 pluginManager.startPlugin(plugin);
             }
-
         } catch(MalformedURLException e) {
             log.error("URL Malformed. Error = {}", e.getMessage());
             e.printStackTrace();
