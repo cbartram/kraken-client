@@ -1,36 +1,23 @@
 package com.kraken;
 
-import com.google.gson.Gson;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.kraken.panel.KrakenLoaderPanel;
 import lombok.extern.slf4j.Slf4j;
-import lombok.extern.slf4j.XSlf4j;
 import net.runelite.api.Client;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.externalplugins.ExternalPluginManager;
-import net.runelite.client.externalplugins.PluginHubManifest;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
-import java.util.function.Predicate;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 
 @Slf4j
 @Singleton
@@ -46,6 +33,12 @@ public class KrakenLoaderPlugin extends Plugin {
 
     @Inject
     private Client client;
+
+    @Inject
+    private ExternalPluginManager externalPluginManager;
+
+    @Inject
+    private PluginManager pluginManager;
 
     private KrakenLoaderPanel panel;
     private NavigationButton navButton;
@@ -68,23 +61,38 @@ public class KrakenLoaderPlugin extends Plugin {
                 .panel(panel)
                 .build();
         clientToolbar.addNavigation(navButton);
-
-        JarResourceLoader jarLoader = new JarResourceLoader();
-        try {
-            List<Class<Plugin>> pluginClasses = jarLoader.loadPluginClasses(PACKAGE_NAME);
-
-            log.info("Loaded {} Kraken plugin class{}.", pluginClasses.size(), pluginClasses.size() > 1 ? "es" : "");
-            for(Class<Plugin> clazz : pluginClasses) {
-                ExternalPluginManager.loadBuiltin(clazz);
-            }
-
-//            ExternalPluginManager.loadBuiltin(pluginClasses.toArray(new Class[pluginClasses.size()]));
-        } catch(MalformedURLException e) {
-            log.error("URL Malformed. Error = {}", e.getMessage());
-            e.printStackTrace();
-        }
+        loadKrakenPlugins();
     }
 
     @Override
     protected void shutDown() {}
+
+
+    /**
+     * Reads the downloaded JAR files, finds the Plugin classes, and invokes RuneLite's plugin manager
+     * to side load the plugins.
+     */
+    private void loadKrakenPlugins() {
+        JarResourceLoader jarLoader = new JarResourceLoader();
+        try {
+            List<Class<?>> pluginClasses = jarLoader.loadPluginClasses(PACKAGE_NAME);
+            log.info("Loaded {} Kraken plugin class{}.", pluginClasses.size(), pluginClasses.size() > 1 ? "es" : "");
+//            List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
+//
+//            for(Plugin plugin : plugins) {
+//                pluginManager.setPluginEnabled(plugin, true);
+//                pluginManager.startPlugin(plugin);
+//            }
+
+//            ExternalPluginManager.loadBuiltin(pluginClasses.toArray(new Class[pluginClasses.size()]));
+//            externalPluginManager.loadExternalPlugins();
+//            externalPluginManager.update();
+        } catch(MalformedURLException e) {
+            log.error("URL Malformed. Error = {}", e.getMessage());
+            e.printStackTrace();
+        } catch(Exception e) {
+            log.error("Exception thrown while attempting to invoke ExternalPluginManager refresh. Error = {}", e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }

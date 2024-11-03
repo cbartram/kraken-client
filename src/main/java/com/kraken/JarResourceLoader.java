@@ -50,8 +50,8 @@ public class JarResourceLoader {
      * @throws MalformedURLException
      */
     @SuppressWarnings("unchecked")
-    public List<Class<Plugin>> loadPluginClasses(final String packageName) throws MalformedURLException {
-        List<Class<Plugin>> classes = new ArrayList<>();
+    public List<Class<?>> loadPluginClasses(final String packageName) throws MalformedURLException {
+        List<Class<?>> classes = new ArrayList<>();
 
         for (String jarPath : this.jarPaths) {
             URL url = new URL("file:" + jarPath);
@@ -75,7 +75,7 @@ public class JarResourceLoader {
                                 if (potentialPluginClass.getSuperclass().getName().equals(PLUGIN_BASE_CLASS_NAME)) {
                                     log.debug("{} extends the Plugin class from RuneLite. Adding to list.", className);
                                     // This cast is safe since we verify that the superclass is a runelite Plugin.
-                                    classes.add((Class<Plugin>) potentialPluginClass);
+                                    classes.add(potentialPluginClass);
                                 }
                             }
                         }
