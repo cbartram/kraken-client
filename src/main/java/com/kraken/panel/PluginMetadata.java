@@ -13,8 +13,7 @@ import java.util.List;
 
 @Value
 @RequiredArgsConstructor
-class PluginMetadata
-{
+public class PluginMetadata {
 	private final String name;
 	private final String description;
 	private final String[] tags;

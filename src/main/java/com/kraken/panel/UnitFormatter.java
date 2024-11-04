@@ -7,7 +7,7 @@ import java.util.Map;
 import javax.swing.JFormattedTextField;
 import lombok.RequiredArgsConstructor;
 
-final class UnitFormatter extends JFormattedTextField.AbstractFormatter {
+public final class UnitFormatter extends JFormattedTextField.AbstractFormatter {
 	private final String units;
 
 	UnitFormatter(String units) {

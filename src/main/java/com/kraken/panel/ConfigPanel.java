@@ -50,6 +50,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.JTextComponent;
+
+import com.kraken.KrakenLoaderPlugin;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigDescriptor;
 import net.runelite.client.config.ConfigGroup;
@@ -86,7 +88,7 @@ import net.runelite.client.util.Text;
 import org.apache.commons.lang3.ArrayUtils;
 
 @Slf4j
-class ConfigPanel extends PluginPanel {
+public class ConfigPanel extends PluginPanel {
 	private static final int SPINNER_FIELD_WIDTH = 6;
 	private static final ImageIcon SECTION_EXPAND_ICON;
 	private static final ImageIcon SECTION_RETRACT_ICON;
@@ -96,15 +98,15 @@ class ConfigPanel extends PluginPanel {
 	private static final Map<ConfigSectionDescriptor, Boolean> sectionExpandStates = new HashMap<>();
 
 	static {
-		final BufferedImage backIcon = ImageUtil.loadImageResource(ConfigPanel.class, "images/config_back_icon.png");
+		final BufferedImage backIcon = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/config_back_icon.png");
 		BACK_ICON = new ImageIcon(backIcon);
 
-		BufferedImage sectionRetractIcon = ImageUtil.loadImageResource(ConfigPanel.class, "images/arrow_right.png");
+		BufferedImage sectionRetractIcon = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/arrow_right.png");
 		sectionRetractIcon = ImageUtil.luminanceOffset(sectionRetractIcon, -121);
 		SECTION_EXPAND_ICON = new ImageIcon(sectionRetractIcon);
 		final BufferedImage sectionExpandIcon = ImageUtil.rotateImage(sectionRetractIcon, Math.PI / 2);
 		SECTION_RETRACT_ICON = new ImageIcon(sectionExpandIcon);
-		BufferedImage configIcon = ImageUtil.loadImageResource(ConfigPanel.class, "images/config_edit_icon.png");
+		BufferedImage configIcon = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/config_edit_icon.png");
 		CONFIG_ICON = new ImageIcon(configIcon);
 	}
 
@@ -126,7 +128,6 @@ class ConfigPanel extends PluginPanel {
 		KrakenLoaderPanel pluginList,
 		ConfigManager configManager,
 		PluginManager pluginManager,
-		ExternalPluginManager externalPluginManager,
 		ColorPickerManager colorPickerManager
 	)
 	{
@@ -174,7 +175,7 @@ class ConfigPanel extends PluginPanel {
 		topPanel.add(title);
 	}
 
-	void init(PluginMetadata pluginConfig) {
+	public void init(PluginMetadata pluginConfig) {
 		assert this.pluginConfig == null;
 		this.pluginConfig = pluginConfig;
 

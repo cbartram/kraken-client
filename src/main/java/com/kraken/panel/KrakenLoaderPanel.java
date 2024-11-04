@@ -227,7 +227,16 @@ public class KrakenLoaderPanel extends PluginPanel {
 		return Text.fromCSV(config);
 	}
 
-	void savePinnedPlugins() {
+	public void openConfigurationPanel(PluginMetadata metadata) {
+		ConfigPanel panel = configPanelProvider.get();
+		log.info("Opening Plugin Configuration with metadata: {}", metadata.toString());
+
+		panel.init(metadata);
+		muxer.pushState(this);
+		muxer.pushState(panel);
+	}
+
+	public void savePinnedPlugins() {
 		final String value = pluginList.stream()
 			.filter(KrakenPluginListItem::isPinned)
 			.map(p -> p.getPluginConfig().getName())
@@ -236,14 +245,10 @@ public class KrakenLoaderPanel extends PluginPanel {
 		configManager.setConfiguration(RUNELITE_GROUP_NAME, PINNED_PLUGINS_CONFIG_KEY, value);
 	}
 
-
-	public void openConfigurationPanel(PluginMetadata metadata) {
-		ConfigPanel panel = configPanelProvider.get();
-		panel.init(metadata);
-		muxer.pushState(this);
-		muxer.pushState(panel);
-	}
-
+	/**
+	 * Starts a plugin registering it with the EventBus.
+	 * @param plugin
+	 */
     public void startPlugin(Plugin plugin) {
         pluginManager.setPluginEnabled(plugin, true);
         try {
@@ -254,6 +259,10 @@ public class KrakenLoaderPanel extends PluginPanel {
         }
     }
 
+	/**
+	 * Stops a plugin de-registering it from the EventBus.
+	 * @param plugin
+	 */
     public void stopPlugin(Plugin plugin) {
         pluginManager.setPluginEnabled(plugin, false);
         try {

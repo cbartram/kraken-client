@@ -11,9 +11,9 @@ import net.runelite.client.config.Keybind;
 import net.runelite.client.config.ModifierlessKeybind;
 import net.runelite.client.ui.FontManager;
 
-class HotkeyButton extends JButton {
+@Getter
+public class HotkeyButton extends JButton {
 
-	@Getter
 	private Keybind value;
 
 	public HotkeyButton(Keybind value, boolean modifierless) {

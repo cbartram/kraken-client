@@ -84,7 +84,7 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		buttonPanel.setLayout(new GridLayout(1, 2));
 		add(buttonPanel, BorderLayout.LINE_END);
 
-		JMenuItem configMenuItem = null;
+		JMenuItem configMenuItem;
 		if (pluginConfig.getConfigDescriptor() != null) {
 			JButton configButton = new JButton(CONFIG_ICON);
 			SwingUtil.removeButtonDecorations(configButton);
