@@ -9,6 +9,10 @@
 .idea/*
 .idea
 
+build/*
+dist
+.gradle
+
 # BlueJ files
 *.ctxt
 
