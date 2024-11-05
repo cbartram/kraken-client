@@ -8,20 +8,16 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/cbartram/Hydra-Toggle">
-    <img src="src/main/resources/com/kraken/images/kraken.png" alt="Logo" width="90" height="90">
+  <a href="https://github.com/cbartram/kraken-loader-plugin">
+    <img src="src/main/resources/com/kraken/images/kraken.png" alt="Logo" width="120" height="120">
   </a>
 
-<h3 align="center">Hydra Toggle</h3>
+<h3 align="center">Kraken Plugin Loader</h3>
 
   <p align="center">
-   A GUI for toggling between the standard RuneLite client and the Hydra Tech client for 
-Old School RuneScape.
+   A RuneLite plugin which side-loads the Kraken essential plugins.
     <br />
 </div>
-
-
-# Kraken Loader Plugin
 
 This is a RuneLite plugin which side loads the Kraken suite of essential plugins into the RuneLite client. Much of the 
 UI code is taken from [RuneLite](https://github.com/runelite/runelite/tree/master) as the Kraken loader plugin has to do the same thing: load plugins, display them in a list,
