@@ -8,9 +8,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.EventBus;
-import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ExternalPluginsChanged;
-import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginInstantiationException;
@@ -133,10 +130,13 @@ public class KrakenPluginListPanel extends PluginPanel {
 		};
     }
 
+	/**
+	 * Rebuilds the Kraken plugin list when changes have been made to a plugin via the KrakenPluginManager.
+	 */
     public void rebuildPluginList() {
 		final List<String> pinnedPlugins = getPinnedPluginNames();
 
-		// populate pluginList with all non-hidden plugins
+		// populate Kraken plugin with all non-hidden plugins
 		pluginList = Stream.concat(
 			fakePlugins.stream(),
 			pluginManager.getPlugins().stream()
@@ -162,7 +162,15 @@ public class KrakenPluginListPanel extends PluginPanel {
 		)
 			.map(desc ->
 			{
-				KrakenPluginListItem listItem = new KrakenPluginListItem(this, desc);
+				KrakenPluginListItem listItem;
+				// Always pin Kraken Plugins to the top and remove the "pin" star icon.
+				if(desc.getName().equals("Kraken Plugins")) {
+					listItem = new KrakenPluginListItem(this, desc, false);
+					listItem.setPinned(true);
+					return listItem;
+				}
+
+				listItem = new KrakenPluginListItem(this, desc, true);
 				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
 				return listItem;
 			})
@@ -173,6 +181,9 @@ public class KrakenPluginListPanel extends PluginPanel {
 		refresh();
 	}
 
+	/**
+	 * Refreshes the list of Kraken plugins.
+	 */
 	void refresh() {
 		pluginList.forEach(listItem -> {
 			final Plugin plugin = listItem.getPluginConfig().getPlugin();
@@ -191,24 +202,8 @@ public class KrakenPluginListPanel extends PluginPanel {
 	}
 
     private void onSearchBarChanged() {
-        final String text = searchBar.getText();
-		if(pluginList == null) {
-			log.info("Plugin list null");
-		}
-
-		if(mainPanel == null) {
-			log.info("Main panel null");
-		}
-
-		for(KrakenPluginListItem p : pluginList) {
-			log.info("Plugins in list: {}", p.getName());
-		}
-
         pluginList.forEach(mainPanel::remove);
-        PluginSearch.search(pluginList, text).forEach(e -> {
-			log.info("Adding plugin to list: {}", e.getName());
-			mainPanel.add(e);
-		});
+        PluginSearch.search(pluginList, searchBar.getText()).forEach(mainPanel::add);
         revalidate();
     }
 
@@ -221,10 +216,13 @@ public class KrakenPluginListPanel extends PluginPanel {
 		return Text.fromCSV(config);
 	}
 
+	/**
+	 * Generates the JPanel UI elements for a plugins configuration when the "gear" icon is clicked.
+	 * @param metadata PluginMetadata Metadata from the plugin's descriptor annotation.
+	 */
 	public void openConfigurationPanel(PluginMetadata metadata) {
+		// Note: Although guice creates this it will create a new ConfigPanel object each time.
 		ConfigPanel panel = configPanelProvider.get();
-		log.info("Opening Plugin Configuration with metadata: {}", metadata.toString());
-
 		panel.init(metadata);
 		muxer.pushState(this);
 		muxer.pushState(panel);
@@ -279,15 +277,4 @@ public class KrakenPluginListPanel extends PluginPanel {
 			searchBar.requestFocusInWindow();
 		}
 	}
-
-	@Subscribe
-	private void onExternalPluginsChanged(ExternalPluginsChanged ev) {
-		SwingUtilities.invokeLater(this::rebuildPluginList);
-	}
-
-	@Subscribe
-	private void onProfileChanged(ProfileChanged ev) {
-		SwingUtilities.invokeLater(this::rebuildPluginList);
-	}
-
 }

@@ -54,6 +54,7 @@ public class KrakenLoaderPlugin extends Plugin {
         RootPanel panelRoot = rootPanelProvider.get();
         KrakenPluginListPanel panel = pluginListPanelProvider.get();
         krakenPluginManager.loadKrakenPlugins();
+        krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
         panel.rebuildPluginList();
 
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "images/kraken.png");

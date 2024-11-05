@@ -49,7 +49,7 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		CONFIG_ICON = new ImageIcon(configIcon);
 	}
 
-	KrakenPluginListItem(KrakenPluginListPanel pluginListPanel, PluginMetadata pluginConfig) {
+	KrakenPluginListItem(KrakenPluginListPanel pluginListPanel, PluginMetadata pluginConfig, boolean pinnable) {
 		this.pluginListPanel = pluginListPanel;
 		this.pluginConfig = pluginConfig;
 
@@ -69,16 +69,18 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		}
 
 		pinButton = new JToggleButton(OFF_STAR);
-		pinButton.setSelectedIcon(ON_STAR);
-		SwingUtil.removeButtonDecorations(pinButton);
-		SwingUtil.addModalTooltip(pinButton, "Unpin plugin", "Pin plugin");
-		pinButton.setPreferredSize(new Dimension(21, 0));
-		add(pinButton, BorderLayout.LINE_START);
+		if(pinnable) {
+			pinButton.setSelectedIcon(ON_STAR);
+			SwingUtil.removeButtonDecorations(pinButton);
+			SwingUtil.addModalTooltip(pinButton, "Unpin plugin", "Pin plugin");
+			pinButton.addActionListener(e -> {
+				pluginListPanel.savePinnedPlugins();
+				pluginListPanel.refresh();
+			});
+			pinButton.setPreferredSize(new Dimension(21, 0));
+			add(pinButton, BorderLayout.LINE_START);
+		}
 
-		pinButton.addActionListener(e -> {
-			pluginListPanel.savePinnedPlugins();
-			pluginListPanel.refresh();
-		});
 
 		final JPanel buttonPanel = new JPanel();
 		buttonPanel.setLayout(new GridLayout(1, 2));

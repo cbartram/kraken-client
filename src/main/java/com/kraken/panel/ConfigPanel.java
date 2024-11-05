@@ -292,36 +292,41 @@ public class ConfigPanel extends PluginPanel {
 
 		topLevelPanels.values().forEach(mainPanel::add);
 
-		JButton resetButton = new JButton("Reset");
-		resetButton.addActionListener((e) -> {
-			final int result = JOptionPane.showOptionDialog(resetButton, "Are you sure you want to reset this plugin's configuration?",
-				"Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
-				null, new String[]{"Yes", "No"}, "No");
 
-			if (result == JOptionPane.YES_OPTION) {
-				configManager.setDefaultConfiguration(pluginConfig.getConfig(), true);
+		// Handle unique config for Kraken Plugin
+		if(cd.getGroup().value().equals("krakenloaderplugin")) {
+			JButton discordSignIn = new JButton("Sign-in with Discord");
+			discordSignIn.addActionListener(e -> {
+				log.info("Authenticating with Discord.");
+			});
+			mainPanel.add(discordSignIn);
+		} else {
+			JButton resetButton = new JButton("Reset");
+			resetButton.addActionListener((e) -> {
+				final int result = JOptionPane.showOptionDialog(resetButton, "Are you sure you want to reset this plugin's configuration?",
+						"Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+						null, new String[]{"Yes", "No"}, "No");
 
-				// Reset non-config panel keys
-				Plugin plugin = pluginConfig.getPlugin();
-				if (plugin != null) {
-					plugin.resetConfiguration();
+				if (result == JOptionPane.YES_OPTION) {
+					configManager.setDefaultConfiguration(pluginConfig.getConfig(), true);
+
+					// Reset non-config panel keys
+					Plugin plugin = pluginConfig.getPlugin();
+					if (plugin != null) {
+						plugin.resetConfiguration();
+					}
+
+					rebuild();
 				}
+			});
+			mainPanel.add(resetButton);
 
-				rebuild();
-			}
-		});
-		mainPanel.add(resetButton);
-
-		JButton backButton = new JButton("Back");
-		backButton.addActionListener(e -> pluginList.getMuxer().popState());
-		mainPanel.add(backButton);
+			JButton backButton = new JButton("Back");
+			backButton.addActionListener(e -> pluginList.getMuxer().popState());
+			mainPanel.add(backButton);
+		}
 
 		revalidate();
-	}
-
-		@Override
-	public String getName() {
-		return "Config-Panel";
 	}
 
 	private JCheckBox createCheckbox(ConfigDescriptor cd, ConfigItemDescriptor cid) {
