@@ -123,11 +123,6 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 	}
 
 	@Override
-	public String getName() {
-		return pluginConfig.getName();
-	}
-
-	@Override
 	public String getSearchableName() {
 		return pluginConfig.getName();
 	}

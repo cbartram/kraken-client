@@ -3,6 +3,7 @@ package com.kraken.panel;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
+import com.kraken.KrakenPluginManager;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
@@ -55,6 +56,7 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final List<PluginMetadata> fakePlugins = new ArrayList<>();
     private final Provider<ConfigPanel> configPanelProvider;
 	private final PluginManager pluginManager;
+	private final KrakenPluginManager krakenPluginManager;
 
     @Getter
 	private final MultiplexingPluginPanel muxer;
@@ -62,6 +64,7 @@ public class KrakenPluginListPanel extends PluginPanel {
     @Inject
     public KrakenPluginListPanel(EventBus eventBus,
 								 PluginManager pluginManager,
+								 KrakenPluginManager krakenPluginManager,
 								 ConfigManager configManager,
 								 Provider<ConfigPanel> configPanelProvider) {
         super(false);
@@ -69,6 +72,7 @@ public class KrakenPluginListPanel extends PluginPanel {
         this.configManager = configManager;
         this.pluginManager = pluginManager;
         this.configPanelProvider = configPanelProvider;
+		this.krakenPluginManager = krakenPluginManager;
 
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -129,12 +133,6 @@ public class KrakenPluginListPanel extends PluginPanel {
 		};
     }
 
-
-	@Override
-	public String getName() {
-		return "Plugin-List-Panel";
-	}
-
     public void rebuildPluginList() {
 		final List<String> pinnedPlugins = getPinnedPluginNames();
 
@@ -142,11 +140,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 		pluginList = Stream.concat(
 			fakePlugins.stream(),
 			pluginManager.getPlugins().stream()
-                // TODO Also filter for Kraken plugins. Need a better way to identify Kraken plugins.
-				.filter(plugin -> {
-					return !plugin.getClass().getAnnotation(PluginDescriptor.class).hidden() &&
-							plugin.getName().equals("Alchemical Hydra");
-				})
+				.filter(plugin -> krakenPluginManager.getPluginMap().get(plugin.getName()) != null)
 				.map(plugin ->
 				{
 					PluginDescriptor descriptor = plugin.getClass().getAnnotation(PluginDescriptor.class);
