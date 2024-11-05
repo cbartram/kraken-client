@@ -1,3 +1,26 @@
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
+
+
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/cbartram/Hydra-Toggle">
+    <img src="src/main/resources/com/kraken/images/kraken.png" alt="Logo" width="90" height="90">
+  </a>
+
+<h3 align="center">Hydra Toggle</h3>
+
+  <p align="center">
+   A GUI for toggling between the standard RuneLite client and the Hydra Tech client for 
+Old School RuneScape.
+    <br />
+</div>
+
+
 # Kraken Loader Plugin
 
 This is a RuneLite plugin which side loads the Kraken suite of essential plugins into the RuneLite client. Much of the 
@@ -72,3 +95,14 @@ details
 ## Acknowledgments
 
   - RuneLite for making an incredible piece of software and API.
+
+[contributors-shield]: https://img.shields.io/github/contributors/cbartram/kraken-loader-plugin.svg?style=for-the-badge
+[contributors-url]: https://github.com/cbartram/kraken-loader-plugin/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/cbartram/kraken-loader-plugin.svg?style=for-the-badge
+[forks-url]: https://github.com/cbartram/kraken-loader-plugin/network/members
+[stars-shield]: https://img.shields.io/github/stars/cbartram/kraken-loader-plugin.svg?style=for-the-badge
+[stars-url]: https://github.com/cbartram/kraken-loader-plugin/stargazers
+[issues-shield]: https://img.shields.io/github/issues/cbartram/kraken-loader-plugin.svg?style=for-the-badge
+[issues-url]: https://github.com/cbartram/kraken-loader-plugin/issues
+[license-shield]: https://img.shields.io/github/license/cbartram/kraken-loader-plugin.svg?style=for-the-badge
+[license-url]: https://github.com/cbartram/kraken-loader-plugin/blob/master/LICENSE.txt
