@@ -5,18 +5,23 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.kraken.loader.JarResourceLoader;
-import com.kraken.panel.KrakenLoaderPanel;
-import com.kraken.panel.TopLevelConfigPanel;
+import com.kraken.panel.KrakenPluginListPanel;
+import com.kraken.panel.RootPanel;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.MenuAction;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.externalplugins.ExternalPluginManager;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.OverlayMenuClicked;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.Overlay;
+import net.runelite.client.ui.overlay.OverlayMenuEntry;
 import net.runelite.client.util.ImageUtil;
 
+import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.net.MalformedURLException;
 import java.util.List;
@@ -37,13 +42,12 @@ public class KrakenLoaderPlugin extends Plugin {
     private PluginManager pluginManager;
 
     @Inject
-	private Provider<KrakenLoaderPanel> pluginListPanelProvider;
+	private Provider<KrakenPluginListPanel> pluginListPanelProvider;
 
     @Inject
-	private Provider<TopLevelConfigPanel> topLevelConfigPanelProvider;
+    private Provider<RootPanel> rootPanelProvider;
 
     private NavigationButton navButton;
-
     private static final String PACKAGE_NAME = "com/krakenplugins";
 
     @Provides
@@ -53,8 +57,8 @@ public class KrakenLoaderPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        TopLevelConfigPanel topLevelConfigPanel = topLevelConfigPanelProvider.get();
-        KrakenLoaderPanel panel = pluginListPanelProvider.get();
+        RootPanel panelRoot = rootPanelProvider.get();
+        KrakenPluginListPanel panel = pluginListPanelProvider.get();
         loadKrakenPlugins();
         panel.rebuildPluginList();
 
@@ -63,14 +67,39 @@ public class KrakenLoaderPlugin extends Plugin {
                 .tooltip("Kraken Plugins")
                 .icon(icon)
                 .priority(2)
-                .panel(topLevelConfigPanel)
+                .panel(panelRoot)
                 .build();
 
         clientToolbar.addNavigation(navButton);
     }
 
     @Override
-    protected void shutDown() {}
+    protected void shutDown() {
+		clientToolbar.removeNavigation(navButton);
+    }
+
+    @Subscribe
+	public void onOverlayMenuClicked(OverlayMenuClicked overlayMenuClicked)
+	{
+		OverlayMenuEntry overlayMenuEntry = overlayMenuClicked.getEntry();
+		if (overlayMenuEntry.getMenuAction() == MenuAction.RUNELITE_OVERLAY_CONFIG)
+		{
+			Overlay overlay = overlayMenuClicked.getOverlay();
+			Plugin plugin = overlay.getPlugin();
+			if (plugin == null)
+			{
+				return;
+			}
+
+			// Expand config panel for plugin
+			SwingUtilities.invokeLater(() ->
+			{
+				clientToolbar.openPanel(navButton);
+                log.info("Opening config panel!>!>!!??");
+//				rootPanelProvider.get().openConfigurationPanel(plugin.getName());
+			});
+		}
+	}
 
     /**
      * Reads the downloaded JAR files, finds the Plugin classes, and invokes RuneLite's plugin manager

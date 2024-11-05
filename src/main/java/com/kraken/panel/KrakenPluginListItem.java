@@ -23,7 +23,7 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 	private static final ImageIcon OFF_STAR;
     private static final ImageIcon CONFIG_ICON;
 
-	private final KrakenLoaderPanel pluginListPanel;
+	private final KrakenPluginListPanel pluginListPanel;
 
 	@Getter
     private final PluginMetadata pluginConfig;
@@ -49,7 +49,7 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		CONFIG_ICON = new ImageIcon(configIcon);
 	}
 
-	KrakenPluginListItem(KrakenLoaderPanel pluginListPanel, PluginMetadata pluginConfig) {
+	KrakenPluginListItem(KrakenPluginListPanel pluginListPanel, PluginMetadata pluginConfig) {
 		this.pluginListPanel = pluginListPanel;
 		this.pluginConfig = pluginConfig;
 
@@ -120,6 +120,11 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		} else {
 			onOffToggle.setVisible(false);
 		}
+	}
+
+	@Override
+	public String getName() {
+		return pluginConfig.getName();
 	}
 
 	@Override

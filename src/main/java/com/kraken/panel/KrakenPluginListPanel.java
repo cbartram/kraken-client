@@ -2,6 +2,7 @@ package com.kraken.panel;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import com.google.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
@@ -13,6 +14,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.config.PluginSearch;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.DynamicGridLayout;
 import net.runelite.client.ui.MultiplexingPluginPanel;
@@ -34,7 +36,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-public class KrakenLoaderPanel extends PluginPanel {
+@Singleton
+public class KrakenPluginListPanel extends PluginPanel {
 
 	private static final String RUNELITE_GROUP_NAME = RuneLiteConfig.class.getAnnotation(ConfigGroup.class).value();
 	private static final String PINNED_PLUGINS_CONFIG_KEY = "krakenPinnedPlugins";
@@ -44,6 +47,8 @@ public class KrakenLoaderPanel extends PluginPanel {
     private final MaterialTabGroup tabGroup = new MaterialTabGroup(display);
     private final IconTextField searchBar;
     private final JScrollPane scrollPane;
+
+	@Getter
     private final FixedWidthPanel mainPanel;
 
     private final ConfigManager configManager;
@@ -55,10 +60,10 @@ public class KrakenLoaderPanel extends PluginPanel {
 	private final MultiplexingPluginPanel muxer;
 
     @Inject
-    public KrakenLoaderPanel(EventBus eventBus,
-                             PluginManager pluginManager,
-                             ConfigManager configManager,
-                             Provider<ConfigPanel> configPanelProvider) {
+    public KrakenPluginListPanel(EventBus eventBus,
+								 PluginManager pluginManager,
+								 ConfigManager configManager,
+								 Provider<ConfigPanel> configPanelProvider) {
         super(false);
 
         this.configManager = configManager;
@@ -68,18 +73,6 @@ public class KrakenLoaderPanel extends PluginPanel {
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
         tabGroup.setBorder(new EmptyBorder(5, 0, 0, 0));
-
-        this.muxer = new MultiplexingPluginPanel(this) {
-			@Override
-			protected void onAdd(PluginPanel p) {
-				eventBus.register(p);
-			}
-
-			@Override
-			protected void onRemove(PluginPanel p) {
-				eventBus.unregister(p);
-			}
-		};
 
         searchBar = new IconTextField();
         searchBar.setIcon(IconTextField.Icon.SEARCH);
@@ -122,7 +115,25 @@ public class KrakenLoaderPanel extends PluginPanel {
         scrollPane = new JScrollPane(northPanel);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
+
+		this.muxer = new MultiplexingPluginPanel(this) {
+			@Override
+			protected void onAdd(PluginPanel p) {
+				eventBus.register(p);
+			}
+
+			@Override
+			protected void onRemove(PluginPanel p) {
+				eventBus.unregister(p);
+			}
+		};
     }
+
+
+	@Override
+	public String getName() {
+		return "Plugin-List-Panel";
+	}
 
     public void rebuildPluginList() {
 		final List<String> pinnedPlugins = getPinnedPluginNames();
@@ -169,13 +180,11 @@ public class KrakenLoaderPanel extends PluginPanel {
 	}
 
 	void refresh() {
-		// update enabled / disabled status of all items
 		pluginList.forEach(listItem -> {
 			final Plugin plugin = listItem.getPluginConfig().getPlugin();
 			if (plugin != null) {
 				listItem.setPluginEnabled(pluginManager.isPluginEnabled(plugin));
 			}
-			mainPanel.add(listItem);
 		});
 
 		int scrollBarPosition = scrollPane.getVerticalScrollBar().getValue();
@@ -187,36 +196,27 @@ public class KrakenLoaderPanel extends PluginPanel {
 		scrollPane.getVerticalScrollBar().setValue(scrollBarPosition);
 	}
 
-	void openWithFilter(String filter) {
-		searchBar.setText(filter);
-		onSearchBarChanged();
-		muxer.pushState(this);
-	}
-
     private void onSearchBarChanged() {
         final String text = searchBar.getText();
-//        pluginList.forEach(mainPanel::remove);
-//        PluginSearch.search(pluginList, text).forEach(mainPanel::add);
+		if(pluginList == null) {
+			log.info("Plugin list null");
+		}
+
+		if(mainPanel == null) {
+			log.info("Main panel null");
+		}
+
+		for(KrakenPluginListItem p : pluginList) {
+			log.info("Plugins in list: {}", p.getName());
+		}
+
+        pluginList.forEach(mainPanel::remove);
+        PluginSearch.search(pluginList, text).forEach(e -> {
+			log.info("Adding plugin to list: {}", e.getName());
+			mainPanel.add(e);
+		});
         revalidate();
     }
-
-    public void openConfigurationPanel(String configGroup) {
-		for (KrakenPluginListItem pluginListItem : pluginList) {
-			if (pluginListItem.getPluginConfig().getName().equals(configGroup)) {
-				openConfigurationPanel(pluginListItem.getPluginConfig());
-				break;
-			}
-		}
-	}
-
-    public void openConfigurationPanel(Plugin plugin) {
-		for (KrakenPluginListItem pluginListItem : pluginList) {
-			if (pluginListItem.getPluginConfig().getPlugin() == plugin) {
-				openConfigurationPanel(pluginListItem.getPluginConfig());
-				break;
-			}
-		}
-	}
 
 	private List<String> getPinnedPluginNames() {
 		final String config = configManager.getConfiguration(RUNELITE_GROUP_NAME, PINNED_PLUGINS_CONFIG_KEY);
