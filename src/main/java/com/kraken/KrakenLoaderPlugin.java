@@ -6,6 +6,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.kraken.loader.JarResourceLoader;
 import com.kraken.panel.KrakenLoaderPanel;
+import com.kraken.panel.TopLevelConfigPanel;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.externalplugins.ExternalPluginManager;
@@ -38,6 +39,9 @@ public class KrakenLoaderPlugin extends Plugin {
     @Inject
 	private Provider<KrakenLoaderPanel> pluginListPanelProvider;
 
+    @Inject
+	private Provider<TopLevelConfigPanel> topLevelConfigPanelProvider;
+
     private NavigationButton navButton;
 
     private static final String PACKAGE_NAME = "com/krakenplugins";
@@ -49,18 +53,20 @@ public class KrakenLoaderPlugin extends Plugin {
 
     @Override
     protected void startUp() {
+        TopLevelConfigPanel topLevelConfigPanel = topLevelConfigPanelProvider.get();
         KrakenLoaderPanel panel = pluginListPanelProvider.get();
+        loadKrakenPlugins();
+        panel.rebuildPluginList();
+
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "images/kraken.png");
         navButton = NavigationButton.builder()
                 .tooltip("Kraken Plugins")
                 .icon(icon)
                 .priority(2)
-                .panel(panel)
+                .panel(topLevelConfigPanel)
                 .build();
 
         clientToolbar.addNavigation(navButton);
-        loadKrakenPlugins();
-        panel.rebuildPluginList();
     }
 
     @Override
