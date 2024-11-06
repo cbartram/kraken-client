@@ -6,6 +6,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.kraken.KrakenLoaderPlugin;
+import com.kraken.auth.DiscordAuth;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.Subscribe;
@@ -298,6 +299,21 @@ public class ConfigPanel extends PluginPanel {
 			JButton discordSignIn = new JButton("Sign-in with Discord");
 			discordSignIn.addActionListener(e -> {
 				log.info("Authenticating with Discord.");
+				DiscordAuth oauth = new DiscordAuth();
+
+				oauth.authenticate()
+						.thenAccept(user -> {
+							log.info("Authenticated user: {}", user.getUsername());
+							log.info("Email: {}", user.getEmail());
+
+							// Here you can now use the user info to authenticate with Cognito
+//							CognitoAuthenticator cognito = new CognitoAuthenticator();
+//							cognito.authenticateWithDiscordCredentials(user);
+						})
+						.exceptionally(throwable -> {
+							log.error("Authentication failed: {}", throwable.getMessage());
+							return null;
+						});
 			});
 			mainPanel.add(discordSignIn);
 		} else {
