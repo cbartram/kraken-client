@@ -43,6 +43,7 @@ public class DiscordAuth {
                 startLocalServer();
                 openBrowser();
                 authorizationLatch.await(); // Wait for auth callback
+                stopLocalServer();
 
                 // Exchange authCode with Kraken-API for access token
                 try {
@@ -52,7 +53,6 @@ public class DiscordAuth {
                     log.error("Failed to exchange access code for discord access token. Error = {}", e.getMessage());
                     e.printStackTrace();
                 }
-                stopLocalServer();
 
                 // Get user info
                 return getDiscordUserInfo(tokenResponse.getAccessToken());
@@ -113,7 +113,7 @@ public class DiscordAuth {
 
     private DiscordTokenResponse getDiscordAccessToken(String authCode) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://rog742w0fa.execute-api.us-east-1.amazonaws.com/default/api/v1/discord-oauth"))
+                .uri(URI.create("https://rog742w0fa.execute-api.us-east-1.amazonaws.com/default/api/v1/discord/oauth"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("{\"code\": \"" + authCode + "\"}"))
                 .build();
