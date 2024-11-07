@@ -3,7 +3,7 @@ package com.kraken.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.kraken.api.DiscordOAuthRequest;
-import com.kraken.api.KrakenApiClient;
+import com.kraken.api.KrakenClient;
 import com.sun.net.httpserver.HttpServer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,15 +30,15 @@ public class DiscordAuth {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final CountDownLatch authorizationLatch = new CountDownLatch(1);
-    private final KrakenApiClient krakenApiClient;
+    private final KrakenClient krakenClient;
 
     private HttpServer server;
     private DiscordTokenResponse tokenResponse;
     private String authCode;
 
     @Inject
-    public DiscordAuth(KrakenApiClient krakenApiClient) {
-        this.krakenApiClient = krakenApiClient;
+    public DiscordAuth(KrakenClient krakenClient) {
+        this.krakenClient = krakenClient;
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper();
     }
@@ -52,7 +52,7 @@ public class DiscordAuth {
                 stopLocalServer();
 
                 // Exchange authCode with Kraken-API for access token
-                tokenResponse = krakenApiClient.postDiscordOAuthCode(new DiscordOAuthRequest(authCode));
+                tokenResponse = krakenClient.postDiscordOAuthCode(new DiscordOAuthRequest(authCode));
                 log.info("Token Response: {}", tokenResponse);
 
                 // Get user info

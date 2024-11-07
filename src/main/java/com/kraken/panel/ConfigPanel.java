@@ -6,7 +6,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.kraken.KrakenLoaderPlugin;
-import com.kraken.api.KrakenApiClient;
+import com.kraken.api.KrakenClient;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.Subscribe;
@@ -70,7 +70,7 @@ public class ConfigPanel extends PluginPanel {
 	private final ConfigManager configManager;
 	private final PluginManager pluginManager;
 	private final ColorPickerManager colorPickerManager;
-	private final KrakenApiClient krakenApiClient;
+	private final KrakenClient krakenClient;
 
 	private final TitleCaseListCellRenderer listCellRenderer = new TitleCaseListCellRenderer();
 
@@ -86,7 +86,7 @@ public class ConfigPanel extends PluginPanel {
 		ConfigManager configManager,
 		PluginManager pluginManager,
 		ColorPickerManager colorPickerManager,
-		KrakenApiClient krakenApiClient
+		KrakenClient krakenClient
 	) {
 		super(false);
 
@@ -94,7 +94,7 @@ public class ConfigPanel extends PluginPanel {
 		this.configManager = configManager;
 		this.pluginManager = pluginManager;
 		this.colorPickerManager = colorPickerManager;
-		this.krakenApiClient = krakenApiClient;
+		this.krakenClient = krakenClient;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);

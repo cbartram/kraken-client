@@ -6,7 +6,8 @@ import com.google.inject.Singleton;
 import com.kraken.KrakenPluginManager;
 import com.kraken.api.CognitoCredentials;
 import com.kraken.api.CreateUserRequest;
-import com.kraken.api.KrakenApiClient;
+import com.kraken.api.KrakenClient;
+import com.kraken.api.KrakenCredentialManager;
 import com.kraken.auth.DiscordAuth;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -59,8 +61,9 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final Provider<ConfigPanel> configPanelProvider;
 	private final PluginManager pluginManager;
 	private final KrakenPluginManager krakenPluginManager;
-	private final KrakenApiClient krakenApiClient;
+	private final KrakenClient krakenClient;
 	private final DiscordAuth discordAuth;
+	private final KrakenCredentialManager credentialManager;
 
     @Getter
 	private final MultiplexingPluginPanel muxer;
@@ -70,7 +73,8 @@ public class KrakenPluginListPanel extends PluginPanel {
 								 PluginManager pluginManager,
 								 KrakenPluginManager krakenPluginManager,
 								 ConfigManager configManager,
-								 KrakenApiClient krakenApiClient,
+								 KrakenClient krakenClient,
+								 KrakenCredentialManager credentialManager,
 								 DiscordAuth discordAuth,
 								 Provider<ConfigPanel> configPanelProvider) {
         super(false);
@@ -79,8 +83,9 @@ public class KrakenPluginListPanel extends PluginPanel {
         this.pluginManager = pluginManager;
         this.configPanelProvider = configPanelProvider;
 		this.krakenPluginManager = krakenPluginManager;
-		this.krakenApiClient = krakenApiClient;
+		this.krakenClient = krakenClient;
 		this.discordAuth = discordAuth;
+		this.credentialManager = credentialManager;
 
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -155,33 +160,70 @@ public class KrakenPluginListPanel extends PluginPanel {
 		startAuthFlow();
     }
 
+	/**
+	 * Starts the general Auth flow for a user. It goes as follows:
+	 * - Attempt to see if creds are already on disk
+	 * 	- Yes: authenticate with creds against Cognito via Kraken API
+	 * 		- Success: Update button action listener and load proper JAR's for purchased plugins
+	 * 		- Failure: Update button to re-link discord, delete creds from disk, warn user.
+	 * - No: Update button to direct user through Discord oauth flow to create user in cognito & write creds to disk.
+	 */
 	public void startAuthFlow() {
-		// TODO Attempt to find a refresh token first. If it doesnt exist then go through OAuth flow
-		CognitoCredentials creds = krakenApiClient.loadUserCredentials();
+		CognitoCredentials creds = credentialManager.loadUserCredentials();
 		if(creds == null) {
 			// The user has not gone through the OAuth 2.0 flow with discord yet.
 			discordButton.setText("Sign-in with Discord");
-			discordButton.addActionListener(e -> {
-				log.info("Authenticating with Discord.");
-				discordAuth.getDiscordUser()
-						.thenAccept(user -> {
-							log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
-
-							// Now create the user with cognito via Kraken API
-							CognitoCredentials newCreds = krakenApiClient.createUser(new CreateUserRequest(user));
-							log.info("Created cognito user with id: {}", user.getId());
-							krakenApiClient.persistUserCredentials(newCreds);
-							discordButton.setText("Disassociate Discord Account");
-						})
-						.exceptionally(throwable -> {
-							log.error("Authentication failed: {}", throwable.getMessage());
-							return null;
-						});
-			});
+			discordButton.addActionListener(discordOAuthFlow());
 		} else {
 			// The user has linked their discord attempt to authenticate creds on disk.
-			discordButton.setText("Disassociate Discord Account");
+			CognitoCredentials newCreds = krakenClient.authenticate(creds);
+			if(newCreds != null) {
+				log.info("User has been successfully authenticated.");
+				credentialManager.persistUserCredentials(newCreds);
+				discordButton.addActionListener(e -> disconnectDiscord());
+				discordButton.setText("Disassociate Discord Account");
+			} else {
+				log.info("User failed auth. Removing discord association.");
+				// User failed auth. Remove credentials
+				discordButton.setText("Sign-in with Discord");
+				discordButton.addActionListener(discordOAuthFlow());
+				credentialManager.removeUserCredentials();
+			}
 		}
+	}
+
+	/**
+	 * A flow which goes through the discord OAuth flow to get an access token and discord user info. User info
+	 * is used to create a new Cognito user and get cognito credentials to store on disk for future auth.
+	 * @return ActionListener
+	 */
+	private ActionListener discordOAuthFlow() {
+		return e -> {
+            log.info("Starting OAuth 2.0 flow with Discord.");
+            discordAuth.getDiscordUser()
+                .thenAccept(user -> {
+                    log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
+
+                    // Now create the user with cognito via Kraken API
+                    CognitoCredentials userCreds = krakenClient.createUser(new CreateUserRequest(user));
+                    log.info("Created cognito user with id: {}", user.getId());
+                    credentialManager.persistUserCredentials(userCreds);
+                    discordButton.setText("Disassociate Discord Account");
+                })
+                .exceptionally(throwable -> {
+                    log.error("Authentication failed: {}", throwable.getMessage());
+                    return null;
+                });
+        };
+    }
+
+	/**
+	 * A flow which disassociates a users Discord account from Kraken. The user account will be removed from Cognito
+	 * and credentials will be removed from disk.
+	 * @return
+	 */
+	private void disconnectDiscord() {
+		// TODO Implement this function soon
 	}
 
 	/**
