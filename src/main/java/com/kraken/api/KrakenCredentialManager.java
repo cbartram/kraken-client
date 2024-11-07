@@ -27,9 +27,9 @@ public class KrakenCredentialManager {
 
     /**
      * Saves a set of user (Cognito) credentials to disk.
-     * @param cognitoCredentials CognitoCredentials the access token and refresh token to save.
+     * @param cognitoUser The user information to save: id, username, email from discord and the access token and refresh token.
      */
-    public void persistUserCredentials(CognitoCredentials cognitoCredentials) {
+    public void persistUserCredentials(CognitoUser cognitoUser) {
         File krakenDir = new File(RUNELITE_DIR, KRAKEN_DIR);
 
         if (!krakenDir.exists()) {
@@ -55,7 +55,8 @@ public class KrakenCredentialManager {
         }
 
         try {
-            mapper.writeValue(credsFile, cognitoCredentials);
+            log.info("User info persisted to disk.");
+            mapper.writeValue(credsFile, cognitoUser);
         } catch (IOException e) {
             log.error("Failed writing creds to JSON file. Path = {}. Error = {}", credsFile.getPath(), e.getMessage());
             e.printStackTrace();
@@ -63,16 +64,16 @@ public class KrakenCredentialManager {
     }
 
     /**
-     * Loads a set of Cognito credentials from disk.
+     * Loads a set of Cognito credentials and user information (discord id, username, email) from disk.
      * @return CognitoCredentials an access token and refresh token for Cognito.
      */
-    public CognitoCredentials loadUserCredentials() {
+    public CognitoUser loadUserCredentials() {
         Path credsFilePath = Paths.get(RUNELITE_DIR.getPath(), KRAKEN_DIR, CREDS_FILE);
         File credsFile = credsFilePath.toFile();
 
         if (credsFile.exists()) {
             try {
-                return mapper.readValue(credsFile, CognitoCredentials.class);
+                return mapper.readValue(credsFile, CognitoUser.class);
             } catch (IOException e) {
                 log.error("IOException thrown while attempting to load user credentials. Error = {}", e.getMessage());
                 e.printStackTrace();

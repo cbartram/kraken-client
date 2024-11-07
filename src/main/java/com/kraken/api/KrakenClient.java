@@ -35,9 +35,9 @@ public class KrakenClient {
      * @param request CreateUserRequest POJO which holds discord information about the user.
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
-    public CognitoCredentials createUser(@NonNull CreateUserRequest request) {
+    public CognitoUser createUser(@NonNull CreateUserRequest request) {
         try {
-            return sendPostRequest("/api/v1/cognito/create-user", request, CognitoCredentials.class);
+            return sendPostRequest("/api/v1/cognito/create-user", request, CognitoUser.class);
         } catch (IOException | InterruptedException e) {
             log.error("IOException thrown while attempting to make API request to /api/v1/cognito/create-user. Error = {}", e.getMessage());
             return null;
@@ -45,19 +45,22 @@ public class KrakenClient {
     }
 
     /**
-     *  Authenticates a set of CognitoCredentials against AWS Cognito. If the credentials returned from this function
-     *  are null it means that the user has failed auth.
-     * @param request CognitoCredentials A set of credentials to authenticate. In this case only the refresh_token is required.
+     *  Authenticates a set of CognitoCredentials against AWS Cognito. If the user returned from this function
+     *  are null it means that the user has failed auth. The credentials returned alongside the user data will always be
+     *  a fresh OAuth access token.
+     * @param request CognitoCredentials A set of credentials to authenticate. In this case only the refresh_token and discord id are required.
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
-    public CognitoCredentials authenticate(@NonNull CognitoCredentials request) {
+    public CognitoUser authenticate(@NonNull CognitoUser request) {
         try {
-            return sendPostRequest("/api/v1/cognito/auth", request, CognitoCredentials.class);
+            return sendPostRequest("/api/v1/cognito/auth", request, CognitoUser.class);
         } catch (IOException | InterruptedException e) {
             log.error("IOException thrown while attempting to make API request to /api/v1/cognito/auth. Error = {}", e.getMessage());
             return null;
         }
     }
+
+    // TODO Add another route for checking if a user exists and getting their account status: enabled/disabled
 
     /**
      * Posts a discord code from the OAuth callback to the Kraken API to exchange for a discord OAuth token (access_token, refresh_token, etc...).

@@ -5,10 +5,7 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.kraken.KrakenLoaderPlugin;
 import com.kraken.KrakenPluginManager;
-import com.kraken.api.CognitoCredentials;
-import com.kraken.api.CreateUserRequest;
-import com.kraken.api.KrakenClient;
-import com.kraken.api.KrakenCredentialManager;
+import com.kraken.api.*;
 import com.kraken.auth.DiscordAuth;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -171,6 +168,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 			}
 		};
 
+		// TODO This flow should ideally start on plugin load not when user first opens the PluginListPanel
 		startAuthFlow();
     }
 
@@ -183,16 +181,27 @@ public class KrakenPluginListPanel extends PluginPanel {
 	 * - No: Update button to direct user through Discord oauth flow to create user in cognito & write creds to disk.
 	 */
 	public void startAuthFlow() {
-		CognitoCredentials creds = credentialManager.loadUserCredentials();
-		if(creds == null) {
+		CognitoUser user = credentialManager.loadUserCredentials();
+		if(user == null) {
 			// The user has not gone through the OAuth 2.0 flow with discord yet.
 			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
 			discordButton.addActionListener(discordOAuthFlow());
+		} else if(user.getDiscordId() == null || user.getCredentials() == null || user.getDiscordUsername() == null) {
+			// Local user data is corrupted somehow we need to re-auth
+			log.warn("User data is corrupted re-auth with discord required.");
+			credentialManager.removeUserCredentials();
+			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
+			discordButton.addActionListener(discordOAuthFlow());
 		} else {
-			// The user has linked their discord attempt to authenticate creds on disk.
-			CognitoCredentials newCreds = krakenClient.authenticate(creds);
+			// The user has linked their discord, attempt to authenticate creds on disk.
+			// TODO It would be nice if krakenClient.authenticate returned new creds + discord user info
+			// because the next request we need to make will be to determine which plugin JAR's we need to download.
+
+			// TODO Figure out how to lock API gateway routes behind authenticated cognito users.
+
+			CognitoUser newCreds = krakenClient.authenticate(user);
 			if(newCreds != null) {
-				log.info("User has been successfully authenticated.");
+				log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
 				credentialManager.persistUserCredentials(newCreds);
 				discordButton.addActionListener(e -> disconnectDiscord());
 				discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
@@ -218,10 +227,13 @@ public class KrakenPluginListPanel extends PluginPanel {
                 .thenAccept(user -> {
                     log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
 
+					// TODO Here check if the user is in cognito but is disabled (need new api route for this)
+					//  if they are disabled re-enable them else continue to create a new user.
+
                     // Now create the user with cognito via Kraken API
-                    CognitoCredentials userCreds = krakenClient.createUser(new CreateUserRequest(user));
+                    CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
                     log.info("Created cognito user with id: {}", user.getId());
-                    credentialManager.persistUserCredentials(userCreds);
+                    credentialManager.persistUserCredentials(cognitoUser);
                     discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
                 })
                 .exceptionally(throwable -> {
@@ -238,6 +250,9 @@ public class KrakenPluginListPanel extends PluginPanel {
 	 */
 	private void disconnectDiscord() {
 		// TODO Implement this function soon
+		//  VERY IMPORTANT do NOT delete user data from cognito only disable them. If you delete the user when they
+		//  disconnect it will also remove their purchased plugins from their account. If the user re-does discord auth AND they are in
+		//  cognito but disabled simply re-enable them.
 	}
 
 	/**
