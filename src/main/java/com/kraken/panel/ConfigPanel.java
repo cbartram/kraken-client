@@ -6,9 +6,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.kraken.KrakenLoaderPlugin;
-import com.kraken.api.CreateUserRequest;
 import com.kraken.api.KrakenApiClient;
-import com.kraken.auth.DiscordAuth;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.Subscribe;
@@ -298,66 +296,36 @@ public class ConfigPanel extends PluginPanel {
 
 		topLevelPanels.values().forEach(mainPanel::add);
 
+		JButton resetButton = getResetButton();
+		mainPanel.add(resetButton);
 
-		// Handle unique config for Kraken Plugin
-		if(cd.getGroup().value().equals("krakenloaderplugin")) {
-			// TODO Attempt to find a refresh token first. If it doesnt exist then go through OAuth flow
-			JButton discordSignIn = new JButton("Sign-in with Discord");
-			discordSignIn.addActionListener(e -> {
-				log.info("Authenticating with Discord.");
-				DiscordAuth oauth = new DiscordAuth();
-
-				oauth.authenticate()
-						.thenAccept(user -> {
-							log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
-
-							// Now create the user with cognito via Kraken API
-							krakenApiClient.createUser(new CreateUserRequest(user.getId(), user.getEmail(), user.getUsername())).thenAccept(accessToken -> {
-								log.info("Created user with id: {} and got cognito access token: {}", user.getId(), accessToken);
-
-								// TODO Write access token and refresh token to disk in ~/.runelite/kraken/properties
-
-							}).exceptionally(err -> {
-								log.error("Failed to create new user with cognito via Kraken API. {}", err.getMessage());
-								err.printStackTrace();
-								return null;
-							});
-
-
-						})
-						.exceptionally(throwable -> {
-							log.error("Authentication failed: {}", throwable.getMessage());
-							return null;
-						});
-			});
-			mainPanel.add(discordSignIn);
-		} else {
-			JButton resetButton = new JButton("Reset");
-			resetButton.addActionListener((e) -> {
-				final int result = JOptionPane.showOptionDialog(resetButton, "Are you sure you want to reset this plugin's configuration?",
-						"Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
-						null, new String[]{"Yes", "No"}, "No");
-
-				if (result == JOptionPane.YES_OPTION) {
-					configManager.setDefaultConfiguration(pluginConfig.getConfig(), true);
-
-					// Reset non-config panel keys
-					Plugin plugin = pluginConfig.getPlugin();
-					if (plugin != null) {
-						plugin.resetConfiguration();
-					}
-
-					rebuild();
-				}
-			});
-			mainPanel.add(resetButton);
-
-			JButton backButton = new JButton("Back");
-			backButton.addActionListener(e -> pluginList.getMuxer().popState());
-			mainPanel.add(backButton);
-		}
+		JButton backButton = new JButton("Back");
+		backButton.addActionListener(e -> pluginList.getMuxer().popState());
+		mainPanel.add(backButton);
 
 		revalidate();
+	}
+
+	private JButton getResetButton() {
+		JButton resetButton = new JButton("Reset");
+		resetButton.addActionListener((e) -> {
+			final int result = JOptionPane.showOptionDialog(resetButton, "Are you sure you want to reset this plugin's configuration?",
+					"Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+					null, new String[]{"Yes", "No"}, "No");
+
+			if (result == JOptionPane.YES_OPTION) {
+				configManager.setDefaultConfiguration(pluginConfig.getConfig(), true);
+
+				// Reset non-config panel keys
+				Plugin plugin = pluginConfig.getPlugin();
+				if (plugin != null) {
+					plugin.resetConfiguration();
+				}
+
+				rebuild();
+			}
+		});
+		return resetButton;
 	}
 
 	private JCheckBox createCheckbox(ConfigDescriptor cd, ConfigItemDescriptor cid) {

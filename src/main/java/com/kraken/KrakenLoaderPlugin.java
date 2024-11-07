@@ -2,12 +2,10 @@ package com.kraken;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.kraken.panel.KrakenPluginListPanel;
 import com.kraken.panel.RootPanel;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
@@ -43,11 +41,6 @@ public class KrakenLoaderPlugin extends Plugin {
     private KrakenPluginManager krakenPluginManager;
 
     private NavigationButton navButton;
-
-    @Provides
-    KrakenLoaderConfig provideConfig(final ConfigManager configManager) {
-        return configManager.getConfig(KrakenLoaderConfig.class);
-    }
 
     @Override
     protected void startUp() {

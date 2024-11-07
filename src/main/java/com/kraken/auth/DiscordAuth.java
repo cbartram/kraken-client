@@ -1,6 +1,9 @@
 package com.kraken.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import com.kraken.api.DiscordOAuthRequest;
+import com.kraken.api.KrakenApiClient;
 import com.sun.net.httpserver.HttpServer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,17 +29,21 @@ public class DiscordAuth {
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private HttpServer server;
     private final CountDownLatch authorizationLatch = new CountDownLatch(1);
+    private final KrakenApiClient krakenApiClient;
+
+    private HttpServer server;
     private DiscordTokenResponse tokenResponse;
     private String authCode;
 
-    public DiscordAuth() {
+    @Inject
+    public DiscordAuth(KrakenApiClient krakenApiClient) {
+        this.krakenApiClient = krakenApiClient;
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper();
     }
 
-    public CompletableFuture<DiscordUser> authenticate() {
+    public CompletableFuture<DiscordUser> getDiscordUser() {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 startLocalServer();
@@ -45,13 +52,8 @@ public class DiscordAuth {
                 stopLocalServer();
 
                 // Exchange authCode with Kraken-API for access token
-                try {
-                    tokenResponse = getDiscordAccessToken(authCode);
-                    log.info("Token Response: {}", tokenResponse);
-                } catch(InterruptedException e) {
-                    log.error("Failed to exchange access code for discord access token. Error = {}", e.getMessage());
-                    e.printStackTrace();
-                }
+                tokenResponse = krakenApiClient.postDiscordOAuthCode(new DiscordOAuthRequest(authCode));
+                log.info("Token Response: {}", tokenResponse);
 
                 // Get user info
                 return getDiscordUserInfo(tokenResponse.getAccessToken());
@@ -62,10 +64,6 @@ public class DiscordAuth {
             }
         });
     }
-
-
-    // TODO Write refresh function when user starts client up and are authed then try to refresh.
-
 
     private void startLocalServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress(PORT), 0);
@@ -108,17 +106,6 @@ public class DiscordAuth {
         } else {
             throw new IOException("Desktop browser open is not supported on user machine.");
         }
-    }
-
-    private DiscordTokenResponse getDiscordAccessToken(String authCode) throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://rog742w0fa.execute-api.us-east-1.amazonaws.com/default/api/v1/discord/oauth"))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString("{\"code\": \"" + authCode + "\"}"))
-                .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        return objectMapper.readValue(response.body(), DiscordTokenResponse.class);
     }
 
     private DiscordUser getDiscordUserInfo(String accessToken) throws IOException, InterruptedException {

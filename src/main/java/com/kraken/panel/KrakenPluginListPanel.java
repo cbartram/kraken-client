@@ -4,6 +4,10 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.kraken.KrakenPluginManager;
+import com.kraken.api.CognitoCredentials;
+import com.kraken.api.CreateUserRequest;
+import com.kraken.api.KrakenApiClient;
+import com.kraken.auth.DiscordAuth;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
@@ -45,6 +49,7 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final MaterialTabGroup tabGroup = new MaterialTabGroup(display);
     private final IconTextField searchBar;
     private final JScrollPane scrollPane;
+	private final JButton discordButton;
 
 	@Getter
     private final FixedWidthPanel mainPanel;
@@ -54,6 +59,8 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final Provider<ConfigPanel> configPanelProvider;
 	private final PluginManager pluginManager;
 	private final KrakenPluginManager krakenPluginManager;
+	private final KrakenApiClient krakenApiClient;
+	private final DiscordAuth discordAuth;
 
     @Getter
 	private final MultiplexingPluginPanel muxer;
@@ -63,6 +70,8 @@ public class KrakenPluginListPanel extends PluginPanel {
 								 PluginManager pluginManager,
 								 KrakenPluginManager krakenPluginManager,
 								 ConfigManager configManager,
+								 KrakenApiClient krakenApiClient,
+								 DiscordAuth discordAuth,
 								 Provider<ConfigPanel> configPanelProvider) {
         super(false);
 
@@ -70,6 +79,8 @@ public class KrakenPluginListPanel extends PluginPanel {
         this.pluginManager = pluginManager;
         this.configPanelProvider = configPanelProvider;
 		this.krakenPluginManager = krakenPluginManager;
+		this.krakenApiClient = krakenApiClient;
+		this.discordAuth = discordAuth;
 
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -117,6 +128,18 @@ public class KrakenPluginListPanel extends PluginPanel {
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
 
+		JPanel discordPanel = new FixedWidthPanel();
+		discordPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+		discordPanel.setLayout(new BorderLayout(0, BORDER_OFFSET));
+		discordButton = new JButton("Login Discord");
+		discordPanel.add(discordButton);
+
+		JPanel bottomPanel = new JPanel();
+		bottomPanel.setLayout(new BorderLayout());
+		bottomPanel.add(discordPanel, BorderLayout.CENTER);
+		bottomPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+		add(bottomPanel, BorderLayout.SOUTH);
+
 		this.muxer = new MultiplexingPluginPanel(this) {
 			@Override
 			protected void onAdd(PluginPanel p) {
@@ -128,7 +151,38 @@ public class KrakenPluginListPanel extends PluginPanel {
 				eventBus.unregister(p);
 			}
 		};
+
+		startAuthFlow();
     }
+
+	public void startAuthFlow() {
+		// TODO Attempt to find a refresh token first. If it doesnt exist then go through OAuth flow
+		CognitoCredentials creds = krakenApiClient.loadUserCredentials();
+		if(creds == null) {
+			// The user has not gone through the OAuth 2.0 flow with discord yet.
+			discordButton.setText("Sign-in with Discord");
+			discordButton.addActionListener(e -> {
+				log.info("Authenticating with Discord.");
+				discordAuth.getDiscordUser()
+						.thenAccept(user -> {
+							log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
+
+							// Now create the user with cognito via Kraken API
+							CognitoCredentials newCreds = krakenApiClient.createUser(new CreateUserRequest(user));
+							log.info("Created cognito user with id: {}", user.getId());
+							krakenApiClient.persistUserCredentials(newCreds);
+							discordButton.setText("Disassociate Discord Account");
+						})
+						.exceptionally(throwable -> {
+							log.error("Authentication failed: {}", throwable.getMessage());
+							return null;
+						});
+			});
+		} else {
+			// The user has linked their discord attempt to authenticate creds on disk.
+			discordButton.setText("Disassociate Discord Account");
+		}
+	}
 
 	/**
 	 * Rebuilds the Kraken plugin list when changes have been made to a plugin via the KrakenPluginManager.
@@ -163,9 +217,9 @@ public class KrakenPluginListPanel extends PluginPanel {
 			.map(desc ->
 			{
 				KrakenPluginListItem listItem;
-				// Always pin Kraken Plugins to the top and remove the "pin" star icon.
+				// Always pin Kraken Plugins to the top and remove the "pin" star icon. TODO doesn't look quite right.
 				if(desc.getName().equals("Kraken Plugins")) {
-					listItem = new KrakenPluginListItem(this, desc, false);
+					listItem = new KrakenPluginListItem(this, desc, true);
 					listItem.setPinned(true);
 					return listItem;
 				}
