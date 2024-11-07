@@ -21,7 +21,6 @@ import java.util.concurrent.CountDownLatch;
 @Slf4j
 public class DiscordAuth {
     private static final String CLIENT_ID = "1303515055777648640";
-    private static final String CLIENT_SECRET = "your-client-secret";
     private static final int PORT = 8080;
     private static final String REDIRECT_URI = "http://localhost:" + PORT + "/discord/oauth";
 

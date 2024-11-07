@@ -6,6 +6,8 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.kraken.KrakenLoaderPlugin;
+import com.kraken.api.CreateUserRequest;
+import com.kraken.api.KrakenApiClient;
 import com.kraken.auth.DiscordAuth;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
@@ -70,6 +72,7 @@ public class ConfigPanel extends PluginPanel {
 	private final ConfigManager configManager;
 	private final PluginManager pluginManager;
 	private final ColorPickerManager colorPickerManager;
+	private final KrakenApiClient krakenApiClient;
 
 	private final TitleCaseListCellRenderer listCellRenderer = new TitleCaseListCellRenderer();
 
@@ -84,7 +87,8 @@ public class ConfigPanel extends PluginPanel {
 		KrakenPluginListPanel pluginList,
 		ConfigManager configManager,
 		PluginManager pluginManager,
-		ColorPickerManager colorPickerManager
+		ColorPickerManager colorPickerManager,
+		KrakenApiClient krakenApiClient
 	) {
 		super(false);
 
@@ -92,6 +96,7 @@ public class ConfigPanel extends PluginPanel {
 		this.configManager = configManager;
 		this.pluginManager = pluginManager;
 		this.colorPickerManager = colorPickerManager;
+		this.krakenApiClient = krakenApiClient;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -296,6 +301,7 @@ public class ConfigPanel extends PluginPanel {
 
 		// Handle unique config for Kraken Plugin
 		if(cd.getGroup().value().equals("krakenloaderplugin")) {
+			// TODO Attempt to find a refresh token first. If it doesnt exist then go through OAuth flow
 			JButton discordSignIn = new JButton("Sign-in with Discord");
 			discordSignIn.addActionListener(e -> {
 				log.info("Authenticating with Discord.");
@@ -303,12 +309,21 @@ public class ConfigPanel extends PluginPanel {
 
 				oauth.authenticate()
 						.thenAccept(user -> {
-							log.info("Authenticated user: {}", user.getUsername());
-							log.info("Email: {}", user.getEmail());
+							log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
 
-							// Here you can now use the user info to authenticate with Cognito
-//							CognitoAuthenticator cognito = new CognitoAuthenticator();
-//							cognito.authenticateWithDiscordCredentials(user);
+							// Now create the user with cognito via Kraken API
+							krakenApiClient.createUser(new CreateUserRequest(user.getId(), user.getEmail(), user.getUsername())).thenAccept(accessToken -> {
+								log.info("Created user with id: {} and got cognito access token: {}", user.getId(), accessToken);
+
+								// TODO Write access token and refresh token to disk in ~/.runelite/kraken/properties
+
+							}).exceptionally(err -> {
+								log.error("Failed to create new user with cognito via Kraken API. {}", err.getMessage());
+								err.printStackTrace();
+								return null;
+							});
+
+
 						})
 						.exceptionally(throwable -> {
 							log.error("Authentication failed: {}", throwable.getMessage());
