@@ -3,6 +3,7 @@ package com.kraken.panel;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
+import com.kraken.KrakenLoaderPlugin;
 import com.kraken.KrakenPluginManager;
 import com.kraken.api.CognitoCredentials;
 import com.kraken.api.CreateUserRequest;
@@ -24,6 +25,7 @@ import net.runelite.client.ui.MultiplexingPluginPanel;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
+import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
 import javax.swing.*;
@@ -32,6 +34,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -45,6 +48,8 @@ public class KrakenPluginListPanel extends PluginPanel {
 
 	private static final String RUNELITE_GROUP_NAME = RuneLiteConfig.class.getAnnotation(ConfigGroup.class).value();
 	private static final String PINNED_PLUGINS_CONFIG_KEY = "krakenPinnedPlugins";
+	private static final String DISCONNECT_DISCORD_BUTTON_TEXT = "Disconnect Discord";
+	private static final String SIGN_IN_DISCORD_BUTTON_TEXT = "Sign-in with Discord";
 
     private List<KrakenPluginListItem> pluginList;
     private final JPanel display = new JPanel();
@@ -52,6 +57,7 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final IconTextField searchBar;
     private final JScrollPane scrollPane;
 	private final JButton discordButton;
+	private static ImageIcon discordIcon;
 
 	@Getter
     private final FixedWidthPanel mainPanel;
@@ -67,6 +73,12 @@ public class KrakenPluginListPanel extends PluginPanel {
 
     @Getter
 	private final MultiplexingPluginPanel muxer;
+
+	static {
+		BufferedImage icon = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/discord_icon.png");
+		icon = ImageUtil.resizeImage(icon, 18, 16);
+		discordIcon = new ImageIcon(icon);
+	}
 
     @Inject
     public KrakenPluginListPanel(EventBus eventBus,
@@ -136,7 +148,9 @@ public class KrakenPluginListPanel extends PluginPanel {
 		JPanel discordPanel = new FixedWidthPanel();
 		discordPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 		discordPanel.setLayout(new BorderLayout(0, BORDER_OFFSET));
-		discordButton = new JButton("Login Discord");
+		discordButton = new JButton(SIGN_IN_DISCORD_BUTTON_TEXT);
+		discordButton.setIcon(discordIcon);
+		discordButton.setIconTextGap(8);
 		discordPanel.add(discordButton);
 
 		JPanel bottomPanel = new JPanel();
@@ -172,7 +186,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 		CognitoCredentials creds = credentialManager.loadUserCredentials();
 		if(creds == null) {
 			// The user has not gone through the OAuth 2.0 flow with discord yet.
-			discordButton.setText("Sign-in with Discord");
+			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
 			discordButton.addActionListener(discordOAuthFlow());
 		} else {
 			// The user has linked their discord attempt to authenticate creds on disk.
@@ -181,11 +195,11 @@ public class KrakenPluginListPanel extends PluginPanel {
 				log.info("User has been successfully authenticated.");
 				credentialManager.persistUserCredentials(newCreds);
 				discordButton.addActionListener(e -> disconnectDiscord());
-				discordButton.setText("Disassociate Discord Account");
+				discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
 			} else {
 				log.info("User failed auth. Removing discord association.");
 				// User failed auth. Remove credentials
-				discordButton.setText("Sign-in with Discord");
+				discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
 				discordButton.addActionListener(discordOAuthFlow());
 				credentialManager.removeUserCredentials();
 			}
@@ -208,7 +222,7 @@ public class KrakenPluginListPanel extends PluginPanel {
                     CognitoCredentials userCreds = krakenClient.createUser(new CreateUserRequest(user));
                     log.info("Created cognito user with id: {}", user.getId());
                     credentialManager.persistUserCredentials(userCreds);
-                    discordButton.setText("Disassociate Discord Account");
+                    discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
                 })
                 .exceptionally(throwable -> {
                     log.error("Authentication failed: {}", throwable.getMessage());
