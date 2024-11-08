@@ -3,10 +3,7 @@ package com.kraken;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import com.kraken.api.CognitoUser;
-import com.kraken.api.CreateUserRequest;
-import com.kraken.api.KrakenClient;
-import com.kraken.api.KrakenCredentialManager;
+import com.kraken.api.*;
 import com.kraken.auth.CognitoAuth;
 import com.kraken.auth.DiscordAuth;
 import com.kraken.panel.KrakenPluginListPanel;
@@ -21,9 +18,6 @@ import net.runelite.client.util.ImageUtil;
 import javax.swing.*;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Singleton
@@ -94,40 +88,32 @@ public class KrakenLoaderPlugin extends Plugin {
      * 		- Failure: Update button to re-link discord, delete creds from disk, warn user.
      * - No: Update button to direct user through Discord oauth flow to create user in cognito & write creds to disk.
      */
-    public void startAuthFlow(JButton discordButton) {
+    public boolean startAuthFlow(JButton discordButton) {
         CognitoUser user = credentialManager.loadUserCredentials();
         if(user == null) {
             log.info("No creds on disk. User has not gone through discord. OAuth 2.0 flow.");
             // The user has not gone through the OAuth 2.0 flow with discord yet.
-            resetDiscordButton(discordButton);
         } else {
             // The user has linked their discord, attempt to authenticate creds on disk.
-            CognitoUser newCreds = krakenClient.authenticate(new CognitoAuth(user.getDiscordId(), user.getCredentials().getRefreshToken()));
-            if(newCreds.getDiscordId() != null && newCreds.getDiscordUsername() != null) {
-                if(!newCreds.isAccountEnabled()) {
+            CognitoUser authUser = krakenClient.authenticate(new CognitoAuth(user.getDiscordId(), user.getCredentials().getRefreshToken()));
+            if(authUser.getDiscordId() != null && authUser.getDiscordUsername() != null) {
+                if(!authUser.isAccountEnabled()) {
                     log.info("User: {} exists but has a disabled account. Saving creds and re-enabling.", user.getDiscordUsername());
-                    krakenClient.updateUserStatus(newCreds.getDiscordId(), true);
+                    krakenClient.updateUserStatus(authUser.getDiscordId(), true);
+                    CognitoCredentials newCreds = krakenClient.refreshSession(new CognitoAuth(authUser.getDiscordId(), null));
+                    authUser.setCredentials(newCreds);
                 }
 
                 log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
-                credentialManager.persistUserCredentials(newCreds);
-                discordButton.addActionListener(e -> disconnectDiscord(newCreds.getDiscordId(), discordButton));
+                credentialManager.persistUserCredentials(authUser);
+                discordButton.addActionListener(e -> disconnectDiscord(authUser, discordButton));
                 discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
-            } else {
-                // Check expiration time of refresh token to see if we can get a new access token or need a new refresh token
-                Instant now = Instant.now();
-                Instant expirationTime = Instant.ofEpochSecond(user.getCredentials().getExpirationTimeSeconds());
-                Duration timeUntilExpiration = Duration.between(now, expirationTime);
-                if(!timeUntilExpiration.isNegative() && timeUntilExpiration.compareTo(Duration.ofDays(7)) < 0) {
-                    log.info("User refresh token expires in: {} days. Refreshing token.",  timeUntilExpiration.get(ChronoUnit.DAYS));
-                    krakenClient.refreshSession(new CognitoAuth(user.getDiscordId(), null));
-                } else {
-                    log.info("User refresh token does not expire for another: {} days", timeUntilExpiration.get(ChronoUnit.DAYS));
-                    log.info("User failed auth. Disconnecting discord.");
-                    resetDiscordButton(discordButton);
-                }
+                return true;
             }
+            log.info("User auth failed. Disconnecting discord.");
         }
+        resetDiscordButton(discordButton);
+        return false;
     }
 
     /**
@@ -139,28 +125,26 @@ public class KrakenLoaderPlugin extends Plugin {
         return e -> {
             log.info("Starting OAuth 2.0 flow with Discord.");
             JButton btn = (JButton) e.getSource();
+            CognitoUser tmpUser = credentialManager.loadUserCredentials();
+            if (tmpUser != null) {
+                if(!tmpUser.isAccountEnabled()) {
+                    // Refresh tokens automatically get revoked for disabled users. No need to auth since it won't work.
+                    // We must refresh the users session.
+                    log.info("User already exists in cognito but is disabled. Re-enabling user. User = {}", tmpUser);
+                    krakenClient.updateUserStatus(tmpUser.getDiscordId(), true);
+                    CognitoCredentials newCreds = krakenClient.refreshSession(new CognitoAuth(tmpUser.getDiscordId(), null));
+                    tmpUser.setCredentials(newCreds);
+                    credentialManager.persistUserCredentials(tmpUser);
+                    return;
+                }
+                return;
+            }
 
             discordAuth.getDiscordUser()
                     .thenAccept(user -> {
-                        CognitoUser cognitoUser;
-                        log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
-
-                        // Check if the user is in cognito but is disabled if they are disabled re-enable them else
-                        // continue to create a new user.
-                        CognitoUser potentialUser = krakenClient.getUser(user.getId());
-
-                        if(potentialUser.getDiscordId() != null) {
-                            if(!potentialUser.isAccountEnabled()) {
-                                log.info("User already exists in cognito but is disabled. Re-enabling user.");
-                                krakenClient.updateUserStatus(user.getId(), true);
-                                credentialManager.persistUserCredentials(potentialUser);
-                            }
-                        } else {
-                            log.info("Cognito user with id: {} does not exist. Creating.", user.getId());
-                            cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
-                            log.info("Created cognito user: {}", cognitoUser.toString());
-                            credentialManager.persistUserCredentials(cognitoUser);
-                        }
+                        log.info("Discord OAuth flow completed. User email = {}. Creating new cognito user.", user.getEmail());
+                        CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
+                        credentialManager.persistUserCredentials(cognitoUser);
                         btn.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
                     })
                     .exceptionally(throwable -> {
@@ -176,8 +160,10 @@ public class KrakenLoaderPlugin extends Plugin {
      * and credentials will be removed from disk. The account can be re-enabled by following the normal discord OAuth flow.
      * Note: This NEVER deletes a user account as that would also remove data around the users purchased plugins.
      */
-    private void disconnectDiscord(String discordId, JButton discordButton) {
-        krakenClient.updateUserStatus(discordId, false);
+    private void disconnectDiscord(CognitoUser user, JButton discordButton) {
+        krakenClient.updateUserStatus(user.getDiscordId(), false);
+        user.setAccountEnabled(false);
+        credentialManager.persistUserCredentials(user);
         resetDiscordButton(discordButton);
     }
 
