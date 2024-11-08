@@ -55,6 +55,10 @@ public class KrakenCredentialManager {
         }
 
         try {
+            if(cognitoUser.getDiscordUsername() == null || cognitoUser.getCognitoId() == null || cognitoUser.getCredentials() == null) {
+                log.info("Cognito user data is null. Skipping persist.");
+                return;
+            }
             log.info("User info persisted to disk.");
             mapper.writeValue(credsFile, cognitoUser);
         } catch (IOException e) {
@@ -73,7 +77,12 @@ public class KrakenCredentialManager {
 
         if (credsFile.exists()) {
             try {
-                return mapper.readValue(credsFile, CognitoUser.class);
+                CognitoUser user = mapper.readValue(credsFile, CognitoUser.class);
+                if(user.getDiscordId() == null || user.getCredentials() == null) {
+                    log.info("User cred file found but not user data was included.");
+                    return null;
+                }
+                return user;
             } catch (IOException e) {
                 log.error("IOException thrown while attempting to load user credentials. Error = {}", e.getMessage());
                 e.printStackTrace();
@@ -83,21 +92,4 @@ public class KrakenCredentialManager {
         return null;
     }
 
-    /**
-     * Removes a set of user credentials from disk.
-     */
-    public void removeUserCredentials() {
-        try {
-            Path credentialsFile = Paths.get(RUNELITE_DIR.getPath(), KRAKEN_DIR, CREDS_FILE);
-
-            if (Files.exists(credentialsFile)) {
-                Files.delete(credentialsFile);
-                log.info("Credentials file successfully deleted");
-            } else {
-                log.info("No credentials file found to delete");
-            }
-        } catch (IOException e) {
-            log.error("Failed to delete credentials file", e);
-        }
-    }
 }

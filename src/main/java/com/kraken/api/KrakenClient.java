@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.kraken.auth.CognitoAuth;
 import com.kraken.auth.DiscordTokenResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +50,7 @@ public class KrakenClient {
      * @param request CognitoCredentials A set of credentials to authenticate. In this case only the refresh_token and discord id are required.
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
-    public CognitoUser authenticate(@NonNull CognitoUser request) {
+    public CognitoUser authenticate(@NonNull CognitoAuth request) {
         return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class);
     }
 
@@ -61,22 +62,6 @@ public class KrakenClient {
      */
     public CognitoUser getUser(@NonNull String discordId) {
         return sendRequestGeneric("GET", "/api/v1/cognito/get-user?discordId=" + discordId, null, CognitoUser.class);
-    }
-
-    /**
-     * Returns 2 boolean values: "userExists" and "userEnabled" representing whether the user with the provided discord id
-     * exists in Cognito and is enabled or not.
-     * @param discordId String the users discord id
-     * @return
-     */
-    public Map<String, Boolean> doesUserExist(@NonNull String discordId) {
-        try {
-            HttpResponse<String> response = sendRequestGeneric("GET", "/api/v1/cognito/user-exists?discordId=" + discordId, null);
-            return objectMapper.readValue(response.body(), new TypeReference<>() {});
-        } catch (IOException | InterruptedException e) {
-            log.error("IOException thrown while attempting to make POST API request to /api/v1/cognito/user-exists. Error = {}", e.getMessage());
-            return null;
-        }
     }
 
     /**

@@ -53,9 +53,6 @@ public class DiscordAuth {
 
                 // Exchange authCode with Kraken-API for access token
                 tokenResponse = krakenClient.postDiscordOAuthCode(new DiscordOAuthRequest(authCode));
-                log.info("Token Response: {}", tokenResponse);
-
-                // Get user info
                 return getDiscordUserInfo(tokenResponse.getAccessToken());
             } catch (Exception e) {
                 log.error("Authentication Failed: {}", e.getMessage());
@@ -72,7 +69,56 @@ public class DiscordAuth {
             authCode = query.substring(query.indexOf("code=") + 5);
 
             // Send success response to browser
-            String response = "<html><body><h1>Authentication successful!</h1><p>You can close this window.</p></body></html>";
+            String response = "<!DOCTYPE html>\n" +
+                    "<html lang=\"en\">\n" +
+                    "<head>\n" +
+                    "    <meta charset=\"UTF-8\">\n" +
+                    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                    "    <title>Kraken Authentication Successful</title>\n" +
+                    "    <style>\n" +
+                    "        body {\n" +
+                    "            font-family: Arial, sans-serif;\n" +
+                    "            background-color: #7289DA;\n" +
+                    "            color: #FFFFFF;\n" +
+                    "            display: flex;\n" +
+                    "            justify-content: center;\n" +
+                    "            align-items: center;\n" +
+                    "            height: 100vh;\n" +
+                    "            margin: 0;\n" +
+                    "            padding: 0;\n" +
+                    "        }\n" +
+                    "        .container {\n" +
+                    "            text-align: center;\n" +
+                    "            padding: 2rem;\n" +
+                    "            background-color: #2C2F33;\n" +
+                    "            border-radius: 8px;\n" +
+                    "            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\n" +
+                    "            max-width: 500px;\n" +
+                    "            width: 90%;\n" +
+                    "        }\n" +
+                    "        h1 {\n" +
+                    "            font-size: 2.5rem;\n" +
+                    "            margin-bottom: 1rem;\n" +
+                    "        }\n" +
+                    "        p {\n" +
+                    "            font-size: 1.2rem;\n" +
+                    "            margin-bottom: 2rem;\n" +
+                    "        }\n" +
+                    "        .logo {\n" +
+                    "            max-width: 150px;\n" +
+                    "            margin-bottom: 2rem;\n" +
+                    "        }\n" +
+                    "    </style>\n" +
+                    "</head>\n" +
+                    "<body>\n" +
+                    "<div class=\"container\">\n" +
+                    "    <img src=\"https://i.ibb.co/NSFyTLL/kraken.png\" alt=\"Kraken Logo\" class=\"logo\">\n" +
+                    "    <h1>Authentication Successful!</h1>\n" +
+                    "    <p>Your Kraken account has been successfully authenticated with Discord.</p>\n" +
+                    "    <p>You can now continue using the Kraken client with your Discord credentials.</p>\n" +
+                    "</div>\n" +
+                    "</body>\n" +
+                    "</html>";
             exchange.getResponseHeaders().set("Content-Type", "text/html");
             exchange.sendResponseHeaders(200, response.length());
             try (OutputStream os = exchange.getResponseBody()) {
@@ -108,6 +154,13 @@ public class DiscordAuth {
         }
     }
 
+    /**
+     * Retrieves user information from Discord such as id, username, and email.
+     * @param accessToken OAuth access token granted from discord OAuth flow.
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     */
     private DiscordUser getDiscordUserInfo(String accessToken) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://discord.com/api/users/@me"))
