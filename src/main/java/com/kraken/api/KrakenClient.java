@@ -1,5 +1,6 @@
 package com.kraken.api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
@@ -7,7 +8,6 @@ import com.google.inject.Singleton;
 import com.kraken.auth.DiscordTokenResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.internal.http.HttpMethod;
 
 import java.io.IOException;
 import java.net.URI;
@@ -23,7 +23,7 @@ import java.util.Map;
 public class KrakenClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private static final String BASE_URL = "https://rog742w0fa.execute-api.us-east-1.amazonaws.com/default";
+    private static final String BASE_URL = "https://rog742w0fa.execute-api.us-east-1.amazonaws.com/prod";
 
     @Inject
     public KrakenClient() {
@@ -39,12 +39,7 @@ public class KrakenClient {
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
     public CognitoUser createUser(@NonNull CreateUserRequest request) {
-        try {
-            return sendPostRequest("/api/v1/cognito/create-user", request, CognitoUser.class);
-        } catch (IOException | InterruptedException e) {
-            log.error("IOException thrown while attempting to make POST API request to /api/v1/cognito/create-user. Error = {}", e.getMessage());
-            return null;
-        }
+        return sendRequestGeneric("POST", "/api/v1/cognito/create-user", request, CognitoUser.class);
     }
 
     /**
@@ -55,12 +50,7 @@ public class KrakenClient {
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
     public CognitoUser authenticate(@NonNull CognitoUser request) {
-        try {
-            return sendPostRequest("/api/v1/cognito/auth", request, CognitoUser.class);
-        } catch (IOException | InterruptedException e) {
-            log.error("IOException thrown while attempting to make POST API request to /api/v1/cognito/auth. Error = {}", e.getMessage());
-            return null;
-        }
+        return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class);
     }
 
     /**
@@ -70,29 +60,18 @@ public class KrakenClient {
      * @return
      */
     public CognitoUser getUser(@NonNull String discordId) {
-        try {
-            HttpResponse<String> response = sendRequestGeneric("GET", "/api/v1/cognito/get-user?discordId=" + discordId, null);
-            if(response.statusCode() == 200) {
-                return objectMapper.readValue(response.body(), CognitoUser.class);
-            } else {
-                log.error("Unexpected status code from /get-user req for discord id: {} status-code: {}", discordId, response.statusCode());
-                return null;
-            }
-        } catch (IOException | InterruptedException e) {
-            log.error("IOException thrown while attempting to make POST API request to /api/v1/cognito/get-user. Error = {}", e.getMessage());
-            return null;
-        }
+        return sendRequestGeneric("GET", "/api/v1/cognito/get-user?discordId=" + discordId, null, CognitoUser.class);
     }
 
     /**
      * Returns 2 boolean values: "userExists" and "userEnabled" representing whether the user with the provided discord id
      * exists in Cognito and is enabled or not.
-     * @param discordId
+     * @param discordId String the users discord id
      * @return
      */
     public Map<String, Boolean> doesUserExist(@NonNull String discordId) {
         try {
-            HttpResponse<String> response = sendRequestGeneric("POST", "/api/v1/cognito/user-exists", "{\"discordId\":\"" + discordId + "\"}", );
+            HttpResponse<String> response = sendRequestGeneric("GET", "/api/v1/cognito/user-exists?discordId=" + discordId, null);
             return objectMapper.readValue(response.body(), new TypeReference<>() {});
         } catch (IOException | InterruptedException e) {
             log.error("IOException thrown while attempting to make POST API request to /api/v1/cognito/user-exists. Error = {}", e.getMessage());
@@ -104,7 +83,8 @@ public class KrakenClient {
      * Updates a users account status to either disabled or enabled.
      * @param discordId String the discord id for the account to update
      * @param accountEnabled Boolean the status of the account.
-     * @return
+     * @return A map which contains one key/value pair. The key is "accountEnabled" and the value is a boolean value of
+     * true or false depending on if this method is being used to enable or disable an account
      */
     public Map<String, Boolean> updateUserStatus(@NonNull String discordId, boolean accountEnabled) {
         try {
@@ -122,12 +102,12 @@ public class KrakenClient {
      * @return DiscordTokenResponse a set of discord credentials (access token, refresh token, expiration timestamp etc...)
      */
     public DiscordTokenResponse postDiscordOAuthCode(@NonNull DiscordOAuthRequest request) {
-        try {
-            return sendPostRequest("/api/v1/discord/oauth", request, DiscordTokenResponse.class);
-        } catch (IOException | InterruptedException e) {
-            log.error("IOException thrown while attempting to make POST API request to /api/v1/discord/oauth. Error = {}", e.getMessage());
-            return null;
+        DiscordTokenResponse res = sendRequestGeneric("POST", "/api/v1/discord/oauth", request, DiscordTokenResponse.class);
+        if(res != null) {
+            return res;
         }
+        log.error("Discord token response from API call is null.");
+        return null;
     }
 
     /**
@@ -143,40 +123,53 @@ public class KrakenClient {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + path))
                 .header("Content-Type", "application/json")
-                .method(method, HttpRequest.BodyPublishers.ofString(jsonBody))
+                .method(method, jsonBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> res = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        log.info("[{}] - {} - Status Code = {}", method, path, res.statusCode());
+
+        if(res.statusCode() < 200 || res.statusCode() > 399) {
+            log.error("Unexpected response code from: {} request to: {}, status code = {}", method, path, res.statusCode());
+        }
+
+        return res;
     }
 
-    private HttpResponse<String> sendPostRequest(String path, Object body) throws IOException, InterruptedException {
-        String jsonBody = objectMapper.writeValueAsString(body);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + path))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
-
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    private HttpResponse<String> sendRequestGeneric(String method, String path, Object body) {
+        try {
+            if(body == null) {
+                return sendRequestGeneric(method, path, null);
+            }
+            return sendRequestGeneric(method, path, objectMapper.writeValueAsString(body));
+        } catch(JsonProcessingException e) {
+            log.error("Failed to write body of request to json. Error = {}", e.getMessage());
+            e.printStackTrace();
+        } catch(IOException e) {
+            log.error("IOException thrown while attempting to send request: method={}, path={}, error={}", method, path, e.getMessage());
+            e.printStackTrace();
+        } catch(InterruptedException e) {
+            log.error("Interrupted exception thrown while attempting to send request: method={}, path={}, error={}", method, path, e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
     }
 
-    private <T> T sendPostRequest(String path, Object body, Class<T> deserializationClass) throws IOException, RuntimeException, InterruptedException {
-        HttpResponse<String> res = sendPostRequest(path, body);
+    private <T> T sendRequestGeneric(String method, String path, Object body, Class<T> deserializationClass)  {
+        HttpResponse<String> response = sendRequestGeneric(method, path, body);
+
+        if(response == null) {
+            return null;
+        }
 
         try {
-            return objectMapper.readValue(res.body(), deserializationClass);
+            if(response.body() != null) {
+                return objectMapper.readValue(response.body(), deserializationClass);
+            }
+            log.error("Cannot deserialize null response body into class: {}", deserializationClass.getName());
         } catch (Exception e) {
-            throw new RuntimeException("Error deserializing response to POJO. Status code = " + res.statusCode(), e);
+            throw new RuntimeException("Error deserializing response to POJO. Status code = " + response.statusCode(), e);
         }
-    }
-
-    private <T> T sendPostRequest(String path, String jsonBody, Class<T> deserializationClass) throws IOException, RuntimeException, InterruptedException {
-        HttpResponse<String> res = sendRequestGeneric("POST", path, jsonBody);
-
-        try {
-            return objectMapper.readValue(res.body(), deserializationClass);
-        } catch (Exception e) {
-            throw new RuntimeException("Error deserializing response to POJO. Status code = " + res.statusCode(), e);
-        }
+        return null;
     }
 }

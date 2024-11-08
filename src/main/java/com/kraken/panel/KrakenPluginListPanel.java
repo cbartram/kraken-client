@@ -5,11 +5,6 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.kraken.KrakenLoaderPlugin;
 import com.kraken.KrakenPluginManager;
-import com.kraken.api.CognitoUser;
-import com.kraken.api.CreateUserRequest;
-import com.kraken.api.KrakenClient;
-import com.kraken.api.KrakenCredentialManager;
-import com.kraken.auth.DiscordAuth;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
@@ -33,10 +28,11 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
-import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -46,16 +42,16 @@ public class KrakenPluginListPanel extends PluginPanel {
 
 	private static final String RUNELITE_GROUP_NAME = RuneLiteConfig.class.getAnnotation(ConfigGroup.class).value();
 	private static final String PINNED_PLUGINS_CONFIG_KEY = "krakenPinnedPlugins";
-	private static final String DISCONNECT_DISCORD_BUTTON_TEXT = "Disconnect Discord";
-	private static final String SIGN_IN_DISCORD_BUTTON_TEXT = "Sign-in with Discord";
 
     private List<KrakenPluginListItem> pluginList;
     private final JPanel display = new JPanel();
     private final MaterialTabGroup tabGroup = new MaterialTabGroup(display);
     private final IconTextField searchBar;
     private final JScrollPane scrollPane;
-	private final JButton discordButton;
-	private static ImageIcon discordIcon;
+	private static final ImageIcon discordIcon;
+
+	@Getter
+	private JButton discordButton;
 
 	@Getter
     private final FixedWidthPanel mainPanel;
@@ -65,9 +61,6 @@ public class KrakenPluginListPanel extends PluginPanel {
     private final Provider<ConfigPanel> configPanelProvider;
 	private final PluginManager pluginManager;
 	private final KrakenPluginManager krakenPluginManager;
-	private final KrakenClient krakenClient;
-	private final DiscordAuth discordAuth;
-	private final KrakenCredentialManager credentialManager;
 
     @Getter
 	private final MultiplexingPluginPanel muxer;
@@ -83,9 +76,6 @@ public class KrakenPluginListPanel extends PluginPanel {
 								 PluginManager pluginManager,
 								 KrakenPluginManager krakenPluginManager,
 								 ConfigManager configManager,
-								 KrakenClient krakenClient,
-								 KrakenCredentialManager credentialManager,
-								 DiscordAuth discordAuth,
 								 Provider<ConfigPanel> configPanelProvider) {
         super(false);
 
@@ -93,9 +83,6 @@ public class KrakenPluginListPanel extends PluginPanel {
         this.pluginManager = pluginManager;
         this.configPanelProvider = configPanelProvider;
 		this.krakenPluginManager = krakenPluginManager;
-		this.krakenClient = krakenClient;
-		this.discordAuth = discordAuth;
-		this.credentialManager = credentialManager;
 
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -146,7 +133,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 		JPanel discordPanel = new FixedWidthPanel();
 		discordPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 		discordPanel.setLayout(new BorderLayout(0, BORDER_OFFSET));
-		discordButton = new JButton(SIGN_IN_DISCORD_BUTTON_TEXT);
+		discordButton = new JButton("DEFAULT_TEXT");
 		discordButton.setIcon(discordIcon);
 		discordButton.setIconTextGap(8);
 		discordPanel.add(discordButton);
@@ -168,106 +155,9 @@ public class KrakenPluginListPanel extends PluginPanel {
 				eventBus.unregister(p);
 			}
 		};
-
-		// TODO This flow should ideally start on plugin load not when user first opens the PluginListPanel
-		startAuthFlow();
     }
 
-	/**
-	 * Starts the general Auth flow for a user. It goes as follows:
-	 * - Attempt to see if creds are already on disk
-	 * 	- Yes: authenticate with creds against Cognito via Kraken API
-	 * 		- Success: Update button action listener and load proper JAR's for purchased plugins
-	 * 		- Failure: Update button to re-link discord, delete creds from disk, warn user.
-	 * - No: Update button to direct user through Discord oauth flow to create user in cognito & write creds to disk.
-	 */
-	public void startAuthFlow() {
-		CognitoUser user = credentialManager.loadUserCredentials();
-		if(user == null) {
-			// The user has not gone through the OAuth 2.0 flow with discord yet.
-			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
-			discordButton.addActionListener(discordOAuthFlow());
-		} else if(user.getDiscordId() == null || user.getCredentials() == null || user.getDiscordUsername() == null) {
-			// Local user data is corrupted somehow need to re-auth
-			log.info("User data is corrupted re-auth with discord required.");
-			credentialManager.removeUserCredentials();
-			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
-			discordButton.addActionListener(discordOAuthFlow());
-		} else {
-			// The user has linked their discord, attempt to authenticate creds on disk.
-			// TODO Figure out how to lock API gateway routes behind authenticated cognito users.
 
-			CognitoUser newCreds = krakenClient.authenticate(user);
-			if(newCreds != null) {
-				if(!newCreds.isAccountEnabled()) {
-					log.info("User: {} has been authenticated but has a disabled account.", user.getDiscordUsername());
-					credentialManager.removeUserCredentials();
-					discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
-					discordButton.addActionListener(discordOAuthFlow());
-				} else {
-					log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
-					credentialManager.persistUserCredentials(newCreds);
-					discordButton.addActionListener(e -> disconnectDiscord());
-					discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
-				}
-			} else {
-				log.info("User failed auth. Removing discord association.");
-				// User failed auth. Remove credentials
-				discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
-				discordButton.addActionListener(discordOAuthFlow());
-				credentialManager.removeUserCredentials();
-			}
-		}
-	}
-
-	/**
-	 * A flow which goes through the discord OAuth flow to get an access token and discord user info. User info
-	 * is used to create a new Cognito user and get cognito credentials to store on disk for future auth.
-	 * @return ActionListener
-	 */
-	private ActionListener discordOAuthFlow() {
-		return e -> {
-            log.info("Starting OAuth 2.0 flow with Discord.");
-            discordAuth.getDiscordUser()
-                .thenAccept(user -> {
-					CognitoUser cognitoUser;
-                    log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
-
-					// Check if the user is in cognito but is disabled if they are disabled re-enable them else
-					// continue to create a new user.
-					Map<String, Boolean> potentialUser = krakenClient.doesUserExist(user.getId());
-					if(potentialUser.get("userExists") && !potentialUser.get("userEnabled")) {
-						log.info("User already exists in cognito but is disabled. Re-enabling user.");
-						Map<String, Boolean> response = krakenClient.updateUserStatus(user.getId(), true);
-						log.info("Update user status response accountEnabled: {}", response.get("accountEnabled"));
-						cognitoUser = krakenClient.getUser(user.getId());
-
-					} else {
-						// Now create the user with cognito via Kraken API
-						cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
-						log.info("Created cognito user with id: {}", user.getId());
-					}
-					credentialManager.persistUserCredentials(cognitoUser);
-					discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
-                })
-                .exceptionally(throwable -> {
-                    log.error("Authentication failed: {}", throwable.getMessage());
-                    return null;
-                });
-        };
-    }
-
-	/**
-	 * A flow which disassociates a users Discord account from Kraken. The user account will be removed from Cognito
-	 * and credentials will be removed from disk.
-	 * @return
-	 */
-	private void disconnectDiscord() {
-		// TODO Implement this function soon
-		//  VERY IMPORTANT do NOT delete user data from cognito only disable them. If you delete the user when they
-		//  disconnect it will also remove their purchased plugins from their account. If the user re-does discord auth AND they are in
-		//  cognito but disabled simply re-enable them.
-	}
 
 	/**
 	 * Rebuilds the Kraken plugin list when changes have been made to a plugin via the KrakenPluginManager.
