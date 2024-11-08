@@ -130,7 +130,7 @@ public class KrakenClient {
         log.info("[{}] - {} - Status Code = {}", method, path, res.statusCode());
 
         if(res.statusCode() < 200 || res.statusCode() > 399) {
-            log.error("Unexpected response code from: {} request to: {}, status code = {}", method, path, res.statusCode());
+            log.error("Unexpected response code from: {} request to: {}, status code = {}, body: {}", method, path, res.statusCode(), res.body());
         }
 
         return res;
