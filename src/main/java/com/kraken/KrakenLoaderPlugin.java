@@ -58,9 +58,12 @@ public class KrakenLoaderPlugin extends Plugin {
     protected void startUp() {
         RootPanel panelRoot = rootPanelProvider.get();
         KrakenPluginListPanel panel = pluginListPanelProvider.get();
-        startAuthFlow(panel.getDiscordButton());
+        boolean userAuthenticated = startAuthFlow(panel.getDiscordButton());
 
-        krakenPluginManager.loadKrakenPlugins();
+        if(userAuthenticated) {
+            krakenPluginManager.loadKrakenPlugins();
+        }
+
         krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
         panel.rebuildPluginList();
 
@@ -97,17 +100,10 @@ public class KrakenLoaderPlugin extends Plugin {
             // The user has linked their discord, attempt to authenticate creds on disk.
             CognitoUser authUser = krakenClient.authenticate(new CognitoAuth(user.getDiscordId(), user.getCredentials().getRefreshToken()));
             if(authUser.getDiscordId() != null && authUser.getDiscordUsername() != null) {
-                if(!authUser.isAccountEnabled()) {
-                    log.info("User: {} exists but has a disabled account. Saving creds and re-enabling.", user.getDiscordUsername());
-                    krakenClient.updateUserStatus(authUser.getDiscordId(), true);
-                    CognitoCredentials newCreds = krakenClient.refreshSession(new CognitoAuth(authUser.getDiscordId(), null));
-                    authUser.setCredentials(newCreds);
-                }
-
-                log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
                 credentialManager.persistUserCredentials(authUser);
                 discordButton.addActionListener(e -> disconnectDiscord(authUser, discordButton));
                 discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
+                log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
                 return true;
             }
             log.info("User auth failed. Disconnecting discord.");
