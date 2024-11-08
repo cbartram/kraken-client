@@ -13,4 +13,7 @@ public class CognitoCredentials {
 
     @JsonProperty("access_token")
     private String accessToken;
+
+    @JsonProperty("token_expiration_seconds")
+    private long expirationTimeSeconds;
 }

@@ -54,6 +54,16 @@ public class KrakenClient {
         return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class);
     }
 
+
+    /**
+     * Refreshes a users session with a new refresh token.
+     * @param request CognitoAuth the discord id of the user to refresh. The current refresh token is not needed.
+     * @return
+     */
+    public CognitoCredentials refreshSession(@NonNull CognitoAuth request) {
+        return sendRequestGeneric("POST", "/api/v1/cognito/refresh-session", request, CognitoCredentials.class);
+    }
+
     /**
      * Performs very similar functionality to authenticate however, this does not authenticate a user. It only returns a
      * Cognito user if it exists. It will return disabled accounts as well.

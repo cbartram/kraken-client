@@ -21,6 +21,9 @@ import net.runelite.client.util.ImageUtil;
 import javax.swing.*;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Singleton
@@ -99,7 +102,6 @@ public class KrakenLoaderPlugin extends Plugin {
             resetDiscordButton(discordButton);
         } else {
             // The user has linked their discord, attempt to authenticate creds on disk.
-            // TODO Figure out how to lock API gateway routes behind authenticated cognito users.
             CognitoUser newCreds = krakenClient.authenticate(new CognitoAuth(user.getDiscordId(), user.getCredentials().getRefreshToken()));
             if(newCreds.getDiscordId() != null && newCreds.getDiscordUsername() != null) {
                 if(!newCreds.isAccountEnabled()) {
@@ -112,8 +114,18 @@ public class KrakenLoaderPlugin extends Plugin {
                 discordButton.addActionListener(e -> disconnectDiscord(newCreds.getDiscordId(), discordButton));
                 discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
             } else {
-                log.info("User failed auth. Disconnecting discord.");
-                resetDiscordButton(discordButton);
+                // Check expiration time of refresh token to see if we can get a new access token or need a new refresh token
+                Instant now = Instant.now();
+                Instant expirationTime = Instant.ofEpochSecond(user.getCredentials().getExpirationTimeSeconds());
+                Duration timeUntilExpiration = Duration.between(now, expirationTime);
+                if(!timeUntilExpiration.isNegative() && timeUntilExpiration.compareTo(Duration.ofDays(7)) < 0) {
+                    log.info("User refresh token expires in: {} days. Refreshing token.",  timeUntilExpiration.get(ChronoUnit.DAYS));
+                    krakenClient.refreshSession(new CognitoAuth(user.getDiscordId(), null));
+                } else {
+                    log.info("User refresh token does not expire for another: {} days", timeUntilExpiration.get(ChronoUnit.DAYS));
+                    log.info("User failed auth. Disconnecting discord.");
+                    resetDiscordButton(discordButton);
+                }
             }
         }
     }
