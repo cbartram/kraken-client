@@ -125,26 +125,12 @@ public class KrakenLoaderPlugin extends Plugin {
         return e -> {
             log.info("Starting OAuth 2.0 flow with Discord.");
             JButton btn = (JButton) e.getSource();
-            CognitoUser tmpUser = credentialManager.loadUserCredentials();
-            if (tmpUser != null) {
-                if(!tmpUser.isAccountEnabled()) {
-                    // Refresh tokens automatically get revoked for disabled users. No need to auth since it won't work.
-                    // We must refresh the users session.
-                    log.info("User already exists in cognito but is disabled. Re-enabling user. User = {}", tmpUser);
-                    krakenClient.updateUserStatus(tmpUser.getDiscordId(), true);
-                    CognitoCredentials newCreds = krakenClient.refreshSession(new CognitoAuth(tmpUser.getDiscordId(), null));
-                    tmpUser.setCredentials(newCreds);
-                    credentialManager.persistUserCredentials(tmpUser);
-                    return;
-                }
-                return;
-            }
-
             discordAuth.getDiscordUser()
                     .thenAccept(user -> {
                         log.info("Discord OAuth flow completed. User email = {}. Creating new cognito user.", user.getEmail());
                         CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
                         credentialManager.persistUserCredentials(cognitoUser);
+                        btn.addActionListener(evt -> disconnectDiscord(cognitoUser, btn));
                         btn.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
                     })
                     .exceptionally(throwable -> {
