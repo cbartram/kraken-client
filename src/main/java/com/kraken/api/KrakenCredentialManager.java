@@ -55,7 +55,7 @@ public class KrakenCredentialManager {
         }
 
         try {
-            if(cognitoUser.getDiscordUsername() == null || cognitoUser.getCognitoId() == null || cognitoUser.getCredentials() == null) {
+            if(cognitoUser.getDiscordUsername() == null || cognitoUser.getDiscordId() == null || cognitoUser.getCredentials() == null) {
                 log.info("Cognito user data is null. Skipping persist.");
                 return;
             }
@@ -75,20 +75,15 @@ public class KrakenCredentialManager {
         Path credsFilePath = Paths.get(RUNELITE_DIR.getPath(), KRAKEN_DIR, CREDS_FILE);
         File credsFile = credsFilePath.toFile();
 
-        if (credsFile.exists()) {
+        if (credsFile.exists() && credsFile.length() > 0) {
             try {
-                CognitoUser user = mapper.readValue(credsFile, CognitoUser.class);
-                if(user.getDiscordId() == null || user.getCredentials() == null) {
-                    log.info("User cred file found but not user data was included.");
-                    return null;
-                }
-                return user;
+                return mapper.readValue(credsFile, CognitoUser.class);
             } catch (IOException e) {
                 log.error("IOException thrown while attempting to load user credentials. Error = {}", e.getMessage());
                 e.printStackTrace();
             }
         }
-        log.warn("No credential file exists at: {} to load.", credsFilePath);
+        log.warn("No credential file exists at: {} to load or file is empty.", credsFilePath);
         return null;
     }
 

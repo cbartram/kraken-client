@@ -46,7 +46,9 @@ public class DiscordAuth {
     public CompletableFuture<DiscordUser> getDiscordUser() {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                startLocalServer();
+                if(server == null) {
+                    startLocalServer();
+                }
                 openBrowser();
                 authorizationLatch.await(); // Wait for auth callback
                 stopLocalServer();
@@ -63,6 +65,7 @@ public class DiscordAuth {
     }
 
     private void startLocalServer() throws IOException {
+
         server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/discord/oauth", exchange -> {
             String query = exchange.getRequestURI().getQuery();

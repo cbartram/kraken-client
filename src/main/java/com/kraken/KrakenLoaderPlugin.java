@@ -145,9 +145,8 @@ public class KrakenLoaderPlugin extends Plugin {
                             }
                         } else {
                             log.info("Cognito user with id: {} does not exist. Creating.", user.getId());
-                            // No user with this disc exists in cognito. Create the user in cognito via Kraken API
-                            // TODO BUG here?
                             cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
+                            log.info("Created cognito user: {}", cognitoUser.toString());
                             credentialManager.persistUserCredentials(cognitoUser);
                         }
                         btn.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
