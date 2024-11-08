@@ -5,7 +5,10 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.kraken.KrakenLoaderPlugin;
 import com.kraken.KrakenPluginManager;
-import com.kraken.api.*;
+import com.kraken.api.CognitoUser;
+import com.kraken.api.CreateUserRequest;
+import com.kraken.api.KrakenClient;
+import com.kraken.api.KrakenCredentialManager;
 import com.kraken.auth.DiscordAuth;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -32,10 +35,8 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -187,24 +188,28 @@ public class KrakenPluginListPanel extends PluginPanel {
 			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
 			discordButton.addActionListener(discordOAuthFlow());
 		} else if(user.getDiscordId() == null || user.getCredentials() == null || user.getDiscordUsername() == null) {
-			// Local user data is corrupted somehow we need to re-auth
-			log.warn("User data is corrupted re-auth with discord required.");
+			// Local user data is corrupted somehow need to re-auth
+			log.info("User data is corrupted re-auth with discord required.");
 			credentialManager.removeUserCredentials();
 			discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
 			discordButton.addActionListener(discordOAuthFlow());
 		} else {
 			// The user has linked their discord, attempt to authenticate creds on disk.
-			// TODO It would be nice if krakenClient.authenticate returned new creds + discord user info
-			// because the next request we need to make will be to determine which plugin JAR's we need to download.
-
 			// TODO Figure out how to lock API gateway routes behind authenticated cognito users.
 
 			CognitoUser newCreds = krakenClient.authenticate(user);
 			if(newCreds != null) {
-				log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
-				credentialManager.persistUserCredentials(newCreds);
-				discordButton.addActionListener(e -> disconnectDiscord());
-				discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
+				if(!newCreds.isAccountEnabled()) {
+					log.info("User: {} has been authenticated but has a disabled account.", user.getDiscordUsername());
+					credentialManager.removeUserCredentials();
+					discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
+					discordButton.addActionListener(discordOAuthFlow());
+				} else {
+					log.info("User: {} has been successfully authenticated.", user.getDiscordUsername());
+					credentialManager.persistUserCredentials(newCreds);
+					discordButton.addActionListener(e -> disconnectDiscord());
+					discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
+				}
 			} else {
 				log.info("User failed auth. Removing discord association.");
 				// User failed auth. Remove credentials
@@ -225,16 +230,25 @@ public class KrakenPluginListPanel extends PluginPanel {
             log.info("Starting OAuth 2.0 flow with Discord.");
             discordAuth.getDiscordUser()
                 .thenAccept(user -> {
+					CognitoUser cognitoUser;
                     log.info("Discord OAuth flow completed. User email = {}", user.getEmail());
 
-					// TODO Here check if the user is in cognito but is disabled (need new api route for this)
-					//  if they are disabled re-enable them else continue to create a new user.
+					// Check if the user is in cognito but is disabled if they are disabled re-enable them else
+					// continue to create a new user.
+					Map<String, Boolean> potentialUser = krakenClient.doesUserExist(user.getId());
+					if(potentialUser.get("userExists") && !potentialUser.get("userEnabled")) {
+						log.info("User already exists in cognito but is disabled. Re-enabling user.");
+						Map<String, Boolean> response = krakenClient.updateUserStatus(user.getId(), true);
+						log.info("Update user status response accountEnabled: {}", response.get("accountEnabled"));
+						cognitoUser = krakenClient.getUser(user.getId());
 
-                    // Now create the user with cognito via Kraken API
-                    CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
-                    log.info("Created cognito user with id: {}", user.getId());
-                    credentialManager.persistUserCredentials(cognitoUser);
-                    discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
+					} else {
+						// Now create the user with cognito via Kraken API
+						cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
+						log.info("Created cognito user with id: {}", user.getId());
+					}
+					credentialManager.persistUserCredentials(cognitoUser);
+					discordButton.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
                 })
                 .exceptionally(throwable -> {
                     log.error("Authentication failed: {}", throwable.getMessage());

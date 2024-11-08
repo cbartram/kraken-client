@@ -8,7 +8,6 @@ import com.kraken.panel.RootPanel;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
@@ -27,9 +26,6 @@ public class KrakenLoaderPlugin extends Plugin {
 
     @Inject
     private ClientToolbar clientToolbar;
-
-    @Inject
-    private PluginManager pluginManager;
 
     @Inject
 	private Provider<KrakenPluginListPanel> pluginListPanelProvider;
