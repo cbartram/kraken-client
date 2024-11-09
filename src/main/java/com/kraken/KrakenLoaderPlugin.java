@@ -18,6 +18,8 @@ import net.runelite.client.util.ImageUtil;
 import javax.swing.*;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Singleton
@@ -61,6 +63,8 @@ public class KrakenLoaderPlugin extends Plugin {
         boolean userAuthenticated = startAuthFlow(panel.getDiscordButton());
 
         if(userAuthenticated) {
+            CognitoUser user = credentialManager.loadUserCredentials();
+            Map<String, List<PreSignedURL>> preSignedUrls = krakenClient.createPresignedUrl(user.getCredentials());
             krakenPluginManager.loadKrakenPlugins();
         }
 

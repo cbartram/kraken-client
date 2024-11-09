@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 
@@ -35,12 +36,30 @@ public class KrakenClient {
     }
 
     /**
+     * Creates a presigned URL from S3 to download plugin JAR files.
+     * @param credentials CognitoCredentials A set of cognito credentials including an access token for API access and id token
+     *                    to validate user permissions.
+     * @return HttpResponse HTTP response from API.
+     */
+    public Map<String, List<PreSignedURL>> createPresignedUrl(CognitoCredentials credentials) {
+        // Strange but you must send id token to access the API. The access token is still required to lookup the authenticated
+        // user on the backend to find purchased plugins.
+        try {
+            HttpResponse<String> res = sendRequestGeneric("POST", "/api/v1/plugin/create-presigned-url", credentials, credentials.getIdToken());
+            return objectMapper.readValue(res.body(), new TypeReference<>() {});
+        } catch (IOException e) {
+            log.error("IOException thrown while attempting to make PUT API request to /api/v1/plugin/create-presigned-url. Error = {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Makes a POST request to the Kraken API to create a new user in AWS Cognito.
      * @param request CreateUserRequest POJO which holds discord information about the user.
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
     public CognitoUser createUser(@NonNull CreateUserRequest request) {
-        return sendRequestGeneric("POST", "/api/v1/cognito/create-user", request, CognitoUser.class);
+        return sendRequestGeneric("POST", "/api/v1/cognito/create-user", request, CognitoUser.class, null);
     }
 
     /**
@@ -51,9 +70,8 @@ public class KrakenClient {
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
      */
     public CognitoUser authenticate(@NonNull CognitoAuth request) {
-        return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class);
+        return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class, null);
     }
-
 
     /**
      * Refreshes a users session with a new refresh token.
@@ -61,7 +79,7 @@ public class KrakenClient {
      * @return
      */
     public CognitoCredentials refreshSession(@NonNull CognitoAuth request) {
-        return sendRequestGeneric("POST", "/api/v1/cognito/refresh-session", request, CognitoCredentials.class);
+        return sendRequestGeneric("POST", "/api/v1/cognito/refresh-session", request, CognitoCredentials.class, null);
     }
 
     /**
@@ -71,7 +89,7 @@ public class KrakenClient {
      * @return
      */
     public CognitoUser getUser(@NonNull String discordId) {
-        return sendRequestGeneric("GET", "/api/v1/cognito/get-user?discordId=" + discordId, null, CognitoUser.class);
+        return sendRequestGeneric("GET", "/api/v1/cognito/get-user?discordId=" + discordId, null, CognitoUser.class, null);
     }
 
     /**
@@ -83,7 +101,7 @@ public class KrakenClient {
      */
     public Map<String, Boolean> updateUserStatus(@NonNull String discordId, boolean accountEnabled) {
         try {
-            HttpResponse<String> response = sendRequestGeneric("PUT", "/api/v1/cognito/user-status",  "{\"discordId\":\"" + discordId + "\", \"accountEnabled\":" + accountEnabled + "}");
+            HttpResponse<String> response = sendRequestGeneric("PUT", "/api/v1/cognito/user-status",  "{\"discordId\":\"" + discordId + "\", \"accountEnabled\":" + accountEnabled + "}", null);
             return objectMapper.readValue(response.body(), new TypeReference<>() {});
         } catch (IOException | InterruptedException e) {
             log.error("IOException thrown while attempting to make PUT API request to /api/v1/cognito/user-status. Error = {}", e.getMessage());
@@ -97,7 +115,7 @@ public class KrakenClient {
      * @return DiscordTokenResponse a set of discord credentials (access token, refresh token, expiration timestamp etc...)
      */
     public DiscordTokenResponse postDiscordOAuthCode(@NonNull DiscordOAuthRequest request) {
-        DiscordTokenResponse res = sendRequestGeneric("POST", "/api/v1/discord/oauth", request, DiscordTokenResponse.class);
+        DiscordTokenResponse res = sendRequestGeneric("POST", "/api/v1/discord/oauth", request, DiscordTokenResponse.class, null);
         if(res != null) {
             return res;
         }
@@ -114,13 +132,18 @@ public class KrakenClient {
      * @throws IOException
      * @throws InterruptedException
      */
-    private HttpResponse<String> sendRequestGeneric(String method, String path, String jsonBody) throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
+    private HttpResponse<String> sendRequestGeneric(@NonNull String method, @NonNull String path, String jsonBody, String accessToken) throws IOException, InterruptedException {
+
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + path))
                 .header("Content-Type", "application/json")
-                .method(method, jsonBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
+                .method(method, jsonBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(jsonBody));
 
+        if(accessToken != null) {
+            requestBuilder.header("Authorization", "Bearer " + accessToken);
+        }
+
+        HttpRequest request = requestBuilder.build();
         HttpResponse<String> res = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         log.info("[{}] - {} - Status Code = {}", method, path, res.statusCode());
 
@@ -131,12 +154,12 @@ public class KrakenClient {
         return res;
     }
 
-    private HttpResponse<String> sendRequestGeneric(String method, String path, Object body) {
+    private HttpResponse<String> sendRequestGeneric(String method, String path, Object body, String accessToken) {
         try {
             if(body == null) {
-                return sendRequestGeneric(method, path, null);
+                return sendRequestGeneric(method, path, null, accessToken);
             }
-            return sendRequestGeneric(method, path, objectMapper.writeValueAsString(body));
+            return sendRequestGeneric(method, path, objectMapper.writeValueAsString(body), accessToken);
         } catch(JsonProcessingException e) {
             log.error("Failed to write body of request to json. Error = {}", e.getMessage());
             e.printStackTrace();
@@ -150,8 +173,8 @@ public class KrakenClient {
         return null;
     }
 
-    private <T> T sendRequestGeneric(String method, String path, Object body, Class<T> deserializationClass)  {
-        HttpResponse<String> response = sendRequestGeneric(method, path, body);
+    private <T> T sendRequestGeneric(String method, String path, Object body, Class<T> deserializationClass, String accessToken)  {
+        HttpResponse<String> response = sendRequestGeneric(method, path, body, accessToken);
 
         if(response == null) {
             return null;
