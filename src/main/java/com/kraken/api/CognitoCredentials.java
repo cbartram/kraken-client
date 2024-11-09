@@ -8,6 +8,9 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CognitoCredentials {
 
+    @JsonProperty("id_token")
+    private String idToken;
+
     @JsonProperty("refresh_token")
     private String refreshToken;
 

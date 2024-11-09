@@ -79,7 +79,6 @@ public class KrakenPluginManager {
         try {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
-
             for (Plugin plugin : plugins) {
                 pluginManager.setPluginEnabled(plugin, true);
                 pluginManager.startPlugin(plugin);
