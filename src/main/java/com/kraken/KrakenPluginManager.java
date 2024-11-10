@@ -29,6 +29,9 @@ public class KrakenPluginManager {
     @Getter
     private final Map<String, Plugin> pluginMap = new HashMap<>();
 
+    @Getter
+    private final Map<String, String> licenseKeys = new HashMap<>();
+
 
     private List<Class<?>> pluginClasses = new ArrayList<>();
 
@@ -79,6 +82,9 @@ public class KrakenPluginManager {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
             for (Plugin plugin : plugins) {
+
+                // TODO Validate license key here? or get plugin conf and add license key to conf? maybe do that in plugin conf
+
                 pluginManager.setPluginEnabled(plugin, true);
                 pluginManager.startPlugin(plugin);
                 pluginMap.put(plugin.getName(), plugin);
