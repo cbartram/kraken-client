@@ -65,7 +65,12 @@ public class KrakenLoaderPlugin extends Plugin {
         if(userAuthenticated) {
             CognitoUser user = credentialManager.loadUserCredentials();
             Map<String, List<PreSignedURL>> preSignedUrls = krakenClient.createPresignedUrl(user.getCredentials());
-            krakenPluginManager.loadKrakenPlugins();
+            for(PreSignedURL url : preSignedUrls.get("urls")) {
+                krakenPluginManager.loadPlugin(url);
+            }
+
+            // Start all loaded plugins
+            krakenPluginManager.startKrakenPlugins();
         }
 
         krakenPluginManager.getPluginMap().put("Kraken Plugins", this);

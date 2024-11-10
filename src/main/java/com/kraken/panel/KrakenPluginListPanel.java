@@ -165,7 +165,7 @@ public class KrakenPluginListPanel extends PluginPanel {
     public void rebuildPluginList() {
 		final List<String> pinnedPlugins = getPinnedPluginNames();
 
-		// populate Kraken plugin with all non-hidden plugins
+		// populate Kraken plugin list with all non-hidden Kraken-only plugins
 		pluginList = Stream.concat(
 			fakePlugins.stream(),
 			pluginManager.getPlugins().stream()

@@ -2,14 +2,16 @@ package com.kraken;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.kraken.api.PreSignedURL;
+import com.kraken.loader.ByteArrayClassLoader;
 import com.kraken.loader.JarResourceLoader;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.PluginManager;
 
-import java.net.MalformedURLException;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,71 +20,70 @@ import java.util.Map;
 @Singleton
 public class KrakenPluginManager {
 
-    private final PluginManager pluginManager;
+    @Inject
+    private JarResourceLoader jarResourceLoader;
 
-    private List<Class<?>> pluginClasses;
+    @Inject
+    private PluginManager pluginManager;
 
     @Getter
     private final Map<String, Plugin> pluginMap = new HashMap<>();
 
+
+    private List<Class<?>> pluginClasses = new ArrayList<>();
+
+
     private static final String PACKAGE_NAME = "com/krakenplugins";
+    private static final String PLUGIN_BASE_CLASS_NAME = "net.runelite.client.plugins.Plugin";
 
-    @Inject
-    public KrakenPluginManager(JarResourceLoader jarLoader, PluginManager pluginManager) {
-        this.pluginManager = pluginManager;
 
-        try {
-            this.pluginClasses = jarLoader.loadPluginClasses(PACKAGE_NAME);
-            log.info("Loaded {} Kraken plugin class{}.", pluginClasses.size(), pluginClasses.size() > 1 ? "es" : "");
+    /**
+     * Iterate through each class which begins with com/krakenplugins in the JAR file, load each class
+     * check its superclass for one that extends the RuneLite Plugin class. If superclass matches then add the class
+     *  to a list. The Class will be loaded and cast to a Plugin object when it is passed to RuneLite
+     * @param url PreSignedURL A presigned URL containing the JAR file for the plugin in S3.
+     */
+    @SuppressWarnings("unchecked")
+    public void loadPlugin(PreSignedURL url) {
+        try(ByteArrayClassLoader loader = jarResourceLoader.loadJarFromSignedUrl(PACKAGE_NAME, url)) {
 
-            for (Class<?> pluginClass : pluginClasses) {
-                // Unchecked cast is OK because the JAR loader checks that each class extends Plugin.
-                Plugin plugin = this.instantiate((Class<Plugin>) pluginClass);
-                this.pluginMap.put(plugin.getName(), plugin);
+            // Iterate through each class which begins with com/krakenplugins in the JAR file, load each class
+            // check its superclass for one that extends the RuneLite Plugin class. If superclass matches then add the class
+            // to a list. The list
+            for (String className : loader.getClassData().keySet()) {
+                try {
+                    Class<?> clazz = loader.loadClass(className);
+                    if (clazz.getSuperclass() != null) {
+                        if (clazz.getSuperclass().getName().equals(PLUGIN_BASE_CLASS_NAME)) {
+                            log.debug("Main Plugin Class located: {}", className);
+                            this.pluginClasses.add(clazz);
+                        }
+                    }
+                } catch (ClassNotFoundException e) {
+                    log.error("Class: {} could not be found. Error = {}", className, e.getMessage());
+                    e.printStackTrace();
+                }
             }
-
-            log.info("Loaded {} Kraken plugin(s)", this.pluginMap.size());
-        } catch (MalformedURLException | PluginInstantiationException e) {
-            log.error("Failed to load plugin classes from Jar file.", e);
+        } catch (IOException e) {
+            log.error("IOException thrown while attempting to load JAR from signed URL: {}", e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    /**
-     * Creates an instance of a Kraken plugin using reflection.
-     * Note: this method skips a lot of the RuneLite dependency checking and guice module bindings so this plugin won't
-     * function as a normal RuneLite plugin. However, these same plugins are loaded into RuneLite correctly
-     * with loadKrakenPlugins(). These plugins simply exist to distinguish Kraken vs RL plugins in the UI NOT to
-     * actually run in game.
-     * @param clazz Loaded class which extends the RuneLite plugin class.
-     * @return Plugin a loaded Plugin object.
-     * @throws PluginInstantiationException
-     */
-    private Plugin instantiate(Class<Plugin> clazz) throws PluginInstantiationException {
-		Plugin plugin;
-		try {
-			plugin = clazz.getDeclaredConstructor().newInstance();
-		} catch (ThreadDeath e) {
-            log.error("Thread death while trying to instantiate plugin class {}.", clazz.getName(), e);
-			throw e;
-		} catch (Throwable ex) {
-			throw new PluginInstantiationException(ex);
-		}
-
-		return plugin;
-	}
-
      /**
-     * Reads the downloaded JAR files, finds the Plugin classes, and invokes RuneLite's plugin manager
-     * to side load the plugins.
+     * Invokes RuneLite's plugin manager to side load the plugins, enabling and registering them with the EventBus. This
+      * method should only be called after all the plugins are loaded from the various JAR files through the .loadPlugin() method.
      */
-    public void loadKrakenPlugins() {
+    public void startKrakenPlugins() {
         try {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
             for (Plugin plugin : plugins) {
                 pluginManager.setPluginEnabled(plugin, true);
                 pluginManager.startPlugin(plugin);
+                pluginMap.put(plugin.getName(), plugin);
             }
+            log.info("Loaded {} Kraken plugin{}", plugins.size(), plugins.size() > 1 ? "s" : "");
         } catch(Exception e) {
             log.error("Exception thrown while attempting to invoke ExternalPluginManager refresh. Error = {}", e.getMessage());
             e.printStackTrace();
