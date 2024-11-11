@@ -59,14 +59,18 @@ public class KrakenClient {
      * @param request ValidateLicenseRequest request payload.
      * @return Map
      */
-    public Map<String, String> validateLicense(ValidateLicenseRequest request) {
+    public boolean validateLicense(ValidateLicenseRequest request) {
         try {
             HttpResponse<String> res = sendRequestGeneric("POST", "/api/v1/plugin/validate-license", request, request.getCredentials().getIdToken());
-            return objectMapper.readValue(res.body(), new TypeReference<>() {});
+            Map<String, String> licenseKeyResponse = objectMapper.readValue(res.body(), new TypeReference<>() {});
+            log.debug("License Key Response: keys = {}, values = {}", licenseKeyResponse.keySet(), licenseKeyResponse.values());
+            if(licenseKeyResponse.get("error") == null) {
+                return true;
+            }
         } catch (IOException e) {
             log.error("IOException thrown while attempting to make PUT API request to /api/v1/plugin/validate-license Error = {}", e.getMessage());
-            return null;
         }
+        return false;
     }
 
     /**

@@ -10,6 +10,9 @@ import com.kraken.loader.ByteArrayClassLoader;
 import com.kraken.loader.JarResourceLoader;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigDescriptor;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginManager;
 
@@ -30,17 +33,15 @@ public class KrakenPluginManager {
     private PluginManager pluginManager;
 
     @Inject
+    private ConfigManager configManager;
+
+    @Inject
     private KrakenClient krakenClient;
 
     @Getter
     private final Map<String, Plugin> pluginMap = new HashMap<>();
 
-    @Getter
-    private final Map<String, String> licenseKeys = new HashMap<>();
-
-
-    private List<Class<?>> pluginClasses = new ArrayList<>();
-
+    private final List<Class<?>> pluginClasses = new ArrayList<>();
 
     private static final String PACKAGE_NAME = "com/krakenplugins";
     private static final String PLUGIN_BASE_CLASS_NAME = "net.runelite.client.plugins.Plugin";
@@ -86,13 +87,27 @@ public class KrakenPluginManager {
         try {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
-            licenseKeys.keySet().forEach(k -> log.info("Licence Key plugin: {}", k));
-            for (Plugin plugin : plugins) {
-                krakenClient.validateLicense(new ValidateLicenseRequest(user.getCredentials(), licenseKeys.get(plugin.getName()), HardwareUtils.getHardwareId()));
 
-                pluginManager.setPluginEnabled(plugin, true);
-                pluginManager.startPlugin(plugin);
+            for (Plugin plugin : plugins) {
+                String licenseKey;
+                Config config = pluginManager.getPluginConfigProxy(plugin);
+                ConfigDescriptor configDescriptor = config == null ? null : configManager.getConfigDescriptor(config);
+
+                if(configDescriptor != null) {
+                    licenseKey = configManager.getConfiguration(configDescriptor.getGroup().value(), "licenseKey");
+                } else {
+                    log.error("Failed to get license key from plugin config for: {}", plugin.getName());
+                    continue;
+                }
+
+                ValidateLicenseRequest req = new ValidateLicenseRequest(user.getCredentials(), licenseKey, HardwareUtils.getHardwareId());
+                if(krakenClient.validateLicense(req)) {
+                    pluginManager.startPlugin(plugin);
+                } else {
+                    log.info("License key provided: {} is not valid.", licenseKey);
+                }
                 pluginMap.put(plugin.getName(), plugin);
+                pluginManager.setPluginEnabled(plugin, true);
             }
             log.info("Loaded {} Kraken plugin{}", plugins.size(), plugins.size() > 1 ? "s" : "");
         } catch(Exception e) {

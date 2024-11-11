@@ -50,6 +50,25 @@ To run the project setup a new run configuration with the following args:
 It should launch RuneLite normally and you will be able to see a small green "Kraken" icon in the Navbar
 which contains your Kraken plugins.
 
+## Adding Plugins
+
+In order for plugins to be compatible with Hydra they must:
+- Include a license field in the RuneLite config. The keyName **MUST** be "licenseKey". It should look like this:
+```java
+@ConfigItem(
+        keyName = "licenseKey",
+        name = "License Key",
+        description = "License key required to enable the plugin.",
+        position = 0,
+        secret = true
+)
+default String licenseKey() {
+    return "";
+}
+```
+- A shaded JAR of the plugin must be built and uploaded to the `/plugins` prefix of the S3 bucket on the backend
+- The `rootProject.name` field in `settings.gradle` **MUST** be the same name as the `@PluginDescriptor` name. It should also replace any spaces with dashes "-".
+
 ## Running the tests
 
 No tests yet.

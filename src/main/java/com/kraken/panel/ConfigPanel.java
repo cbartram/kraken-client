@@ -6,7 +6,6 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.kraken.KrakenLoaderPlugin;
-import com.kraken.KrakenPluginManager;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.Subscribe;
@@ -70,7 +69,6 @@ public class ConfigPanel extends PluginPanel {
 	private final ConfigManager configManager;
 	private final PluginManager pluginManager;
 	private final ColorPickerManager colorPickerManager;
-	private final KrakenPluginManager krakenPluginManager;
 	private final TitleCaseListCellRenderer listCellRenderer = new TitleCaseListCellRenderer();
 
 	private final FixedWidthPanel mainPanel;
@@ -84,8 +82,7 @@ public class ConfigPanel extends PluginPanel {
 		KrakenPluginListPanel pluginList,
 		ConfigManager configManager,
 		PluginManager pluginManager,
-		ColorPickerManager colorPickerManager,
-		KrakenPluginManager krakenPluginManager
+		ColorPickerManager colorPickerManager
 	) {
 		super(false);
 
@@ -93,7 +90,6 @@ public class ConfigPanel extends PluginPanel {
 		this.configManager = configManager;
 		this.pluginManager = pluginManager;
 		this.colorPickerManager = colorPickerManager;
-		this.krakenPluginManager = krakenPluginManager;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -183,41 +179,6 @@ public class ConfigPanel extends PluginPanel {
 			.compare(a.position(), b.position())
 			.compare(a.name(), b.name())
 			.result());
-
-
-		// Add the License Key Secret Field to every kraken plugin
-		JPanel licenceKey = new JPanel();
-		licenceKey.setLayout(new BoxLayout(licenceKey, BoxLayout.Y_AXIS));
-		licenceKey.setMinimumSize(new Dimension(PANEL_WIDTH, 0));
-
-		JLabel licenseKeyLabel = new JLabel("License Key");
-		licenseKeyLabel.setForeground(ColorScheme.BRAND_ORANGE);
-		licenseKeyLabel.setFont(FontManager.getRunescapeBoldFont());
-		licenseKeyLabel.setToolTipText("<html>License Key <br>Enter your License Key to enable the plugin.</html>");
-		KrakenPluginListItem.addLabelPopupMenu(licenseKeyLabel);
-
-		JPanel labelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		labelPanel.add(licenseKeyLabel);
-
-		// Add components vertically
-		licenceKey.add(labelPanel);
-		licenceKey.add(createLicenseKeyField(pluginConfig.getName()));
-		topLevelPanels.put(new ConfigObject() {
-			@Override
-			public String key() {
-				return "licenseKey";
-			}
-
-			@Override
-			public String name() {
-				return "License Key";
-			}
-
-			@Override
-			public int position() {
-				return -50;
-			}
-		}, licenceKey);
 
 		for (ConfigSectionDescriptor csd : cd.getSections()) {
 			ConfigSection cs = csd.getSection();
@@ -413,22 +374,6 @@ public class ConfigPanel extends PluginPanel {
 		}
 
 		return spinner;
-	}
-
-	private JTextComponent createLicenseKeyField(String pluginName) {
-		JTextComponent textField;
-		textField = new JPasswordField();
-		textField.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-		textField.setText("");
-
-		textField.addFocusListener(new FocusAdapter() {
-			@Override
-			public void focusLost(FocusEvent e) {
-				krakenPluginManager.getLicenseKeys().put(pluginName, textField.getText());
-			}
-		});
-
-		return textField;
 	}
 
 	private JTextComponent createTextField(ConfigDescriptor cd, ConfigItemDescriptor cid) {
