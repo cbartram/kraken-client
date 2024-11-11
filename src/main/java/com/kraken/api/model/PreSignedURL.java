@@ -1,4 +1,4 @@
-package com.kraken.api;
+package com.kraken.api.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

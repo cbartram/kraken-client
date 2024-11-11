@@ -1,18 +1,21 @@
-package com.kraken.api;
+package com.kraken.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.kraken.auth.DiscordUser;
 import lombok.Data;
 import lombok.NonNull;
 
 @Data
 public class CreateUserRequest {
 
-    public CreateUserRequest(@NonNull DiscordUser user) {
+    public CreateUserRequest(@NonNull DiscordUser user, @NonNull String hardwareId) {
         this.discordEmail = user.getEmail();
         this.discordId = user.getId();
         this.discordUsername = user.getUsername();
+        this.hardwareId = hardwareId;
     }
+
+    @JsonProperty("hardware_id")
+    private String hardwareId;
 
     @JsonProperty("discord_id")
     private String discordId;

@@ -1,4 +1,4 @@
-package com.kraken.auth;
+package com.kraken.api.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

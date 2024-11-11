@@ -3,6 +3,7 @@ package com.kraken.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Singleton;
+import com.kraken.api.model.CognitoUser;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;

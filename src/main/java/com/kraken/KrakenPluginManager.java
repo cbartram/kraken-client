@@ -2,7 +2,10 @@ package com.kraken;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.kraken.api.PreSignedURL;
+import com.kraken.api.KrakenClient;
+import com.kraken.api.model.CognitoUser;
+import com.kraken.api.model.PreSignedURL;
+import com.kraken.api.model.ValidateLicenseRequest;
 import com.kraken.loader.ByteArrayClassLoader;
 import com.kraken.loader.JarResourceLoader;
 import lombok.Getter;
@@ -26,6 +29,9 @@ public class KrakenPluginManager {
     @Inject
     private PluginManager pluginManager;
 
+    @Inject
+    private KrakenClient krakenClient;
+
     @Getter
     private final Map<String, Plugin> pluginMap = new HashMap<>();
 
@@ -46,7 +52,6 @@ public class KrakenPluginManager {
      *  to a list. The Class will be loaded and cast to a Plugin object when it is passed to RuneLite
      * @param url PreSignedURL A presigned URL containing the JAR file for the plugin in S3.
      */
-    @SuppressWarnings("unchecked")
     public void loadPlugin(PreSignedURL url) {
         try(ByteArrayClassLoader loader = jarResourceLoader.loadJarFromSignedUrl(PACKAGE_NAME, url)) {
 
@@ -77,13 +82,13 @@ public class KrakenPluginManager {
      * Invokes RuneLite's plugin manager to side load the plugins, enabling and registering them with the EventBus. This
       * method should only be called after all the plugins are loaded from the various JAR files through the .loadPlugin() method.
      */
-    public void startKrakenPlugins() {
+    public void startKrakenPlugins(CognitoUser user) {
         try {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
+            licenseKeys.keySet().forEach(k -> log.info("Licence Key plugin: {}", k));
             for (Plugin plugin : plugins) {
-
-                // TODO Validate license key here? or get plugin conf and add license key to conf? maybe do that in plugin conf
+                krakenClient.validateLicense(new ValidateLicenseRequest(user.getCredentials(), licenseKeys.get(plugin.getName()), HardwareUtils.getHardwareId()));
 
                 pluginManager.setPluginEnabled(plugin, true);
                 pluginManager.startPlugin(plugin);

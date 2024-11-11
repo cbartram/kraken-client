@@ -5,8 +5,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.kraken.auth.CognitoAuth;
-import com.kraken.auth.DiscordTokenResponse;
+import com.kraken.api.model.*;
+import com.kraken.api.model.CognitoAuth;
+import com.kraken.api.model.DiscordTokenResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,6 +55,21 @@ public class KrakenClient {
     }
 
     /**
+     * Validates that a plugin license key is: not expired, connected to the correct hardware, and associated with the right account
+     * @param request ValidateLicenseRequest request payload.
+     * @return Map
+     */
+    public Map<String, String> validateLicense(ValidateLicenseRequest request) {
+        try {
+            HttpResponse<String> res = sendRequestGeneric("POST", "/api/v1/plugin/validate-license", request, request.getCredentials().getIdToken());
+            return objectMapper.readValue(res.body(), new TypeReference<>() {});
+        } catch (IOException e) {
+            log.error("IOException thrown while attempting to make PUT API request to /api/v1/plugin/validate-license Error = {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Makes a POST request to the Kraken API to create a new user in AWS Cognito.
      * @param request CreateUserRequest POJO which holds discord information about the user.
      * @return CognitoCredentials A set of credentials (access_token & refresh_token)
@@ -72,6 +88,7 @@ public class KrakenClient {
     public CognitoUser authenticate(@NonNull CognitoAuth request) {
         return sendRequestGeneric("POST", "/api/v1/cognito/auth", request, CognitoUser.class, null);
     }
+
 
     /**
      * Refreshes a users session with a new refresh token.

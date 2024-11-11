@@ -22,16 +22,22 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
     implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.1'
+    implementation(group: 'com.github.oshi', name: 'oshi-core', version: '6.6.5') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
 
 
     testImplementation 'junit:junit:4.12'
+    testImplementation(group: 'com.github.oshi', name: 'oshi-core', version: '6.6.5') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
     testImplementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.1'
     testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
     testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
 group = 'com.kraken'
-version = '1.0-SNAPSHOT'
+version = '1.0.0'
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

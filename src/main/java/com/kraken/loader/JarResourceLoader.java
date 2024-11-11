@@ -1,6 +1,6 @@
 package com.kraken.loader;
 
-import com.kraken.api.PreSignedURL;
+import com.kraken.api.model.PreSignedURL;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;

@@ -1,8 +1,7 @@
-package com.kraken.auth;
+package com.kraken.api.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
-import com.kraken.api.DiscordOAuthRequest;
 import com.kraken.api.KrakenClient;
 import com.sun.net.httpserver.HttpServer;
 import lombok.extern.slf4j.Slf4j;

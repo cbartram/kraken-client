@@ -4,8 +4,11 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.kraken.api.*;
-import com.kraken.auth.CognitoAuth;
-import com.kraken.auth.DiscordAuth;
+import com.kraken.api.model.CognitoUser;
+import com.kraken.api.model.CreateUserRequest;
+import com.kraken.api.model.PreSignedURL;
+import com.kraken.api.model.CognitoAuth;
+import com.kraken.api.model.DiscordAuth;
 import com.kraken.panel.KrakenPluginListPanel;
 import com.kraken.panel.RootPanel;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +29,7 @@ import java.util.Map;
 @PluginDescriptor(
         name = "Kraken Plugins",
         description = "Loads the Kraken Plugins.",
-        hidden = true,
+        hidden = false,
         tags = {"kraken", "plugin", "loader"}
 )
 public class KrakenLoaderPlugin extends Plugin {
@@ -70,7 +73,7 @@ public class KrakenLoaderPlugin extends Plugin {
             }
 
             // Start all loaded plugins
-            krakenPluginManager.startKrakenPlugins();
+            krakenPluginManager.startKrakenPlugins(user);
         }
 
         krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
@@ -133,7 +136,7 @@ public class KrakenLoaderPlugin extends Plugin {
             discordAuth.getDiscordUser()
                     .thenAccept(user -> {
                         log.info("Discord OAuth flow completed. User email = {}. Creating new cognito user.", user.getEmail());
-                        CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user));
+                        CognitoUser cognitoUser = krakenClient.createUser(new CreateUserRequest(user, HardwareUtils.getHardwareId()));
                         credentialManager.persistUserCredentials(cognitoUser);
                         btn.addActionListener(evt -> disconnectDiscord(cognitoUser, btn));
                         btn.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
