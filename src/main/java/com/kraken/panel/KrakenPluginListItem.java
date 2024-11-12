@@ -32,7 +32,8 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 	private final List<String> keywords = new ArrayList<>();
 
 	private final JToggleButton pinButton;
-	private final PluginToggleButton onOffToggle = new PluginToggleButton();
+	private PluginToggleButton onOffToggle = new PluginToggleButton(true);
+	private final Boolean verifiedPlugin;
 
 	static {
         BufferedImage onStar = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/star_on.png");
@@ -49,9 +50,10 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 		CONFIG_ICON = new ImageIcon(configIcon);
 	}
 
-	KrakenPluginListItem(KrakenPluginListPanel pluginListPanel, PluginMetadata pluginConfig, boolean pinnable, boolean enableToggle) {
+	KrakenPluginListItem(KrakenPluginListPanel pluginListPanel, PluginMetadata pluginConfig, boolean pinnable, boolean enableToggle, boolean verified) {
 		this.pluginListPanel = pluginListPanel;
 		this.pluginConfig = pluginConfig;
+		this.verifiedPlugin = verified;
 
 		Collections.addAll(keywords, pluginConfig.getName().toLowerCase().split(" "));
 		Collections.addAll(keywords, pluginConfig.getDescription().toLowerCase().split(" "));
@@ -110,14 +112,19 @@ public class KrakenPluginListItem extends JPanel implements SearchablePlugin {
 
 
 		if(enableToggle) {
+			onOffToggle = new PluginToggleButton(verifiedPlugin);
 			onOffToggle.setConflicts(pluginConfig.getConflicts());
 			buttonPanel.add(onOffToggle);
 			if (pluginConfig.getPlugin() != null) {
 				onOffToggle.addActionListener(i -> {
 					if (onOffToggle.isSelected()) {
-						pluginListPanel.startPlugin(pluginConfig.getPlugin());
+						if(verifiedPlugin) {
+							pluginListPanel.startPlugin(pluginConfig.getPlugin());
+						}
 					} else {
-						pluginListPanel.stopPlugin(pluginConfig.getPlugin());
+						if(verifiedPlugin) {
+							pluginListPanel.stopPlugin(pluginConfig.getPlugin());
+						}
 					}
 				});
 			} else {

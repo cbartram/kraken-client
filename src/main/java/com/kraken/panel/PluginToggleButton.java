@@ -1,18 +1,22 @@
 package com.kraken.panel;
 
+import com.kraken.KrakenLoaderPlugin;
+import lombok.Getter;
+import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.SwingUtil;
+
+import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.List;
-import javax.swing.ImageIcon;
-import javax.swing.JToggleButton;
-
-import com.kraken.KrakenLoaderPlugin;
-import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.SwingUtil;
 
 public class PluginToggleButton extends JToggleButton {
 	private static final ImageIcon ON_SWITCHER;
 	private static final ImageIcon OFF_SWITCHER;
+	private static final ImageIcon INVALID_SWITCHER; // When the plugin license is invalid
+
+	@Getter
+	private boolean valid;
 
 	static {
 		BufferedImage onSwitcher = ImageUtil.loadImageResource(KrakenLoaderPlugin.class, "images/switcher_on.png");
@@ -27,17 +31,27 @@ public class PluginToggleButton extends JToggleButton {
 			true,
 			false
 		));
+		INVALID_SWITCHER = new ImageIcon(ImageUtil.recolorImage(onSwitcher, new Color(255, 59, 62)));
 	}
 
 	private String conflictString = "";
 
-	public PluginToggleButton() {
+	public PluginToggleButton(boolean valid) {
 		super(OFF_SWITCHER);
-		setSelectedIcon(ON_SWITCHER);
+		this.valid = valid;
+		setSelectedIcon(this.valid ? ON_SWITCHER : INVALID_SWITCHER);
 		SwingUtil.removeButtonDecorations(this);
 		setPreferredSize(new Dimension(25, 0));
 		addItemListener(l -> updateTooltip());
 		updateTooltip();
+	}
+
+	public void setValid(boolean valid) {
+		if(!valid) {
+			setSelectedIcon(INVALID_SWITCHER);
+			return;
+		}
+		setSelectedIcon(ON_SWITCHER);
 	}
 
 	private void updateTooltip() {

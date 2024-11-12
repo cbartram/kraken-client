@@ -42,17 +42,18 @@ project may not work with all versions of the Java JDK. Specifically it has been
 
 ### Running
 
-To run the project setup a new run configuration with the following args:
+To run the project set up a new run configuration with the following args:
 - VM Args: `-ea`
 - CLI Args: `--developer-mode` (optionally `--debug` for more logs)
 - Main class: `com.kraken.KrakenLoaderPluginTest`
 
-It should launch RuneLite normally and you will be able to see a small green "Kraken" icon in the Navbar
+It should launch RuneLite normally, and you will be able to see a small green "Kraken" icon in the Navbar
 which contains your Kraken plugins.
 
 ## Adding Plugins
 
-In order for plugins to be compatible with Hydra they must:
+In order for plugins to be compatible with Kraken they must:
+- Be nested a package called `com.krakenplugins`. Any other package nesting within `com.krakenplugins` is fine.
 - Include a license field in the RuneLite config. The keyName **MUST** be "licenseKey". It should look like this:
 ```java
 @ConfigItem(
@@ -68,6 +69,7 @@ default String licenseKey() {
 ```
 - A shaded JAR of the plugin must be built and uploaded to the `/plugins` prefix of the S3 bucket on the backend
 - The `rootProject.name` field in `settings.gradle` **MUST** be the same name as the `@PluginDescriptor` name. It should also replace any spaces with dashes "-".
+- (Optional) Ideally JAR file names for plugins are as small as possible. Replacing words like `snapshot-all` with a simple semantic version is helpful.
 
 ## Running the tests
 

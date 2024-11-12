@@ -5,7 +5,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
+import com.kraken.HardwareUtils;
 import com.kraken.KrakenLoaderPlugin;
+import com.kraken.KrakenPluginManager;
+import com.kraken.api.model.ValidateLicenseRequest;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.*;
 import net.runelite.client.eventbus.Subscribe;
@@ -66,6 +69,7 @@ public class ConfigPanel extends PluginPanel {
 	}
 
 	private final KrakenPluginListPanel pluginList;
+	private final KrakenPluginManager krakenPluginManager;
 	private final ConfigManager configManager;
 	private final PluginManager pluginManager;
 	private final ColorPickerManager colorPickerManager;
@@ -80,6 +84,7 @@ public class ConfigPanel extends PluginPanel {
 	@Inject
 	private ConfigPanel(
 		KrakenPluginListPanel pluginList,
+		KrakenPluginManager krakenPluginManager,
 		ConfigManager configManager,
 		PluginManager pluginManager,
 		ColorPickerManager colorPickerManager
@@ -90,6 +95,7 @@ public class ConfigPanel extends PluginPanel {
 		this.configManager = configManager;
 		this.pluginManager = pluginManager;
 		this.colorPickerManager = colorPickerManager;
+		this.krakenPluginManager = krakenPluginManager;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -120,7 +126,7 @@ public class ConfigPanel extends PluginPanel {
 		topPanelBackButton.setToolTipText("Back");
 		topPanel.add(topPanelBackButton, BorderLayout.WEST);
 
-		pluginToggle = new PluginToggleButton();
+		pluginToggle = new PluginToggleButton(true);
 		topPanel.add(pluginToggle, BorderLayout.EAST);
 		title = new JLabel();
 		title.setForeground(Color.WHITE);
@@ -145,11 +151,19 @@ public class ConfigPanel extends PluginPanel {
 		if (pluginConfig.getPlugin() != null) {
 			pluginToggle.setConflicts(pluginConfig.getConflicts());
 			pluginToggle.setSelected(pluginManager.isPluginEnabled(pluginConfig.getPlugin()));
+			if(pluginToggle.isSelected()) {
+				pluginToggle.setValid(pluginConfig.getVerified());
+			}
+
 			pluginToggle.addItemListener(i -> {
 				if (pluginToggle.isSelected()) {
-					pluginList.startPlugin(pluginConfig.getPlugin());
+					if(pluginConfig.getVerified()) {
+						pluginList.startPlugin(pluginConfig.getPlugin());
+					}
 				} else {
-					pluginList.stopPlugin(pluginConfig.getPlugin());
+					if(pluginConfig.getVerified()) {
+						pluginList.stopPlugin(pluginConfig.getPlugin());
+					}
 				}
 			});
 		} else {
@@ -394,6 +408,23 @@ public class ConfigPanel extends PluginPanel {
 		textField.addFocusListener(new FocusAdapter() {
 			@Override
 			public void focusLost(FocusEvent e) {
+
+				if(cid.getItem().keyName().equals("licenseKey")) {
+					log.info("License key field changed. Re-validating license: {}", textField.getText());
+					// TODO Re-validate license key and update the plugin list, and config panel accordingly
+					ValidateLicenseRequest req = new ValidateLicenseRequest(krakenPluginManager.getUser().getCredentials(), textField.getText(), HardwareUtils.getHardwareId());
+					String name = pluginConfig.getPlugin().getName();
+					if(krakenPluginManager.hasValidLicense(req)) {
+						log.info("Plugin: {} has a valid license.", name);
+						krakenPluginManager.getVerifiedPlugins().put(name, true);
+					} else {
+						log.info("Plugin: {} has an invalid license.", name);
+						krakenPluginManager.getVerifiedPlugins().put(name, false);
+					}
+
+					pluginList.rebuildPluginList();
+				}
+
 				changeConfiguration(textField, cd, cid);
 			}
 		});

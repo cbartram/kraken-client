@@ -95,7 +95,8 @@ public class KrakenLoaderPlugin extends Plugin {
         }
 
         // Start all loaded plugins
-        krakenPluginManager.startKrakenPlugins(user);
+        krakenPluginManager.setUser(user);
+        krakenPluginManager.startKrakenPlugins();
         pluginListPanelProvider.get().rebuildPluginList();
     }
 

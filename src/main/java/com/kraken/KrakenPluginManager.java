@@ -9,6 +9,7 @@ import com.kraken.api.model.ValidateLicenseRequest;
 import com.kraken.loader.ByteArrayClassLoader;
 import com.kraken.loader.JarResourceLoader;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigDescriptor;
@@ -43,8 +44,16 @@ public class KrakenPluginManager {
 
     private final List<Class<?>> pluginClasses = new ArrayList<>();
 
+    // Tracks plugins which have passed the license verification.
+    @Getter
+    private final Map<String, Boolean> verifiedPlugins = new HashMap<>();
+
     private static final String PACKAGE_NAME = "com/krakenplugins";
     private static final String PLUGIN_BASE_CLASS_NAME = "net.runelite.client.plugins.Plugin";
+
+    @Getter
+    @Setter
+    private CognitoUser user;
 
 
     /**
@@ -79,11 +88,23 @@ public class KrakenPluginManager {
         }
     }
 
+    public boolean hasValidLicense(ValidateLicenseRequest validateLicenseRequest) {
+        return krakenClient.validateLicense(validateLicenseRequest);
+    }
+
      /**
      * Invokes RuneLite's plugin manager to side load the plugins, enabling and registering them with the EventBus. This
       * method should only be called after all the plugins are loaded from the various JAR files through the .loadPlugin() method.
      */
-    public void startKrakenPlugins(CognitoUser user) {
+    public void startKrakenPlugins() {
+        if(user == null) {
+            log.info("User is null. Cannot validate plugins with null user.");
+            return;
+        }
+
+
+        verifiedPlugins.put("Kraken Plugins", true);
+
         try {
             // Load, enable, and start the plugins with RuneLite, so they can be registered with the EventBus
             List<Plugin> plugins = pluginManager.loadPlugins(pluginClasses, null);
@@ -101,10 +122,12 @@ public class KrakenPluginManager {
                 }
 
                 ValidateLicenseRequest req = new ValidateLicenseRequest(user.getCredentials(), licenseKey, HardwareUtils.getHardwareId());
-                if(krakenClient.validateLicense(req)) {
+                if(hasValidLicense(req)) {
+                    verifiedPlugins.put(plugin.getName(), true);
                     pluginManager.startPlugin(plugin);
                 } else {
                     log.info("License key provided: {} is not valid.", licenseKey);
+                    verifiedPlugins.put(plugin.getName(), false);
                 }
                 pluginMap.put(plugin.getName(), plugin);
                 pluginManager.setPluginEnabled(plugin, true);

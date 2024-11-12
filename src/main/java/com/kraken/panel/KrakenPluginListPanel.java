@@ -184,6 +184,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 						descriptor.description(),
 						descriptor.tags(),
 						plugin,
+						krakenPluginManager.getVerifiedPlugins().get(plugin.getName()),
 						config,
 						configDescriptor,
 						conflicts);
@@ -192,14 +193,14 @@ public class KrakenPluginListPanel extends PluginPanel {
 			.map(desc ->
 			{
 				KrakenPluginListItem listItem;
-				// Always pin Kraken Plugins to the top and remove the "pin" star icon. TODO doesn't look quite right.
+				// Always pin Kraken Plugins to the top and disable the users ability to toggle this plugin off.
 				if(desc.getName().equals("Kraken Plugins")) {
-					listItem = new KrakenPluginListItem(this, desc, true, false);
+					listItem = new KrakenPluginListItem(this, desc, true, false, desc.getVerified());
 					listItem.setPinned(true);
 					return listItem;
 				}
 
-				listItem = new KrakenPluginListItem(this, desc, true, true);
+				listItem = new KrakenPluginListItem(this, desc, true, true, desc.getVerified());
 				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
 				return listItem;
 			})
