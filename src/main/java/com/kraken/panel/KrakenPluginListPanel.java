@@ -194,12 +194,12 @@ public class KrakenPluginListPanel extends PluginPanel {
 				KrakenPluginListItem listItem;
 				// Always pin Kraken Plugins to the top and remove the "pin" star icon. TODO doesn't look quite right.
 				if(desc.getName().equals("Kraken Plugins")) {
-					listItem = new KrakenPluginListItem(this, desc, true);
+					listItem = new KrakenPluginListItem(this, desc, true, false);
 					listItem.setPinned(true);
 					return listItem;
 				}
 
-				listItem = new KrakenPluginListItem(this, desc, true);
+				listItem = new KrakenPluginListItem(this, desc, true, true);
 				listItem.setPinned(pinnedPlugins.contains(desc.getName()));
 				return listItem;
 			})

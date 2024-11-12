@@ -3,12 +3,9 @@ package com.kraken;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import com.kraken.api.*;
-import com.kraken.api.model.CognitoUser;
-import com.kraken.api.model.CreateUserRequest;
-import com.kraken.api.model.PreSignedURL;
-import com.kraken.api.model.CognitoAuth;
-import com.kraken.api.model.DiscordAuth;
+import com.kraken.api.KrakenClient;
+import com.kraken.api.KrakenCredentialManager;
+import com.kraken.api.model.*;
 import com.kraken.panel.KrakenPluginListPanel;
 import com.kraken.panel.RootPanel;
 import lombok.extern.slf4j.Slf4j;
@@ -66,14 +63,7 @@ public class KrakenLoaderPlugin extends Plugin {
         boolean userAuthenticated = startAuthFlow(panel.getDiscordButton());
 
         if(userAuthenticated) {
-            CognitoUser user = credentialManager.loadUserCredentials();
-            Map<String, List<PreSignedURL>> preSignedUrls = krakenClient.createPresignedUrl(user.getCredentials());
-            for(PreSignedURL url : preSignedUrls.get("urls")) {
-                krakenPluginManager.loadPlugin(url);
-            }
-
-            // Start all loaded plugins
-            krakenPluginManager.startKrakenPlugins(user);
+           syncPlugins();
         }
 
         krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
@@ -93,6 +83,20 @@ public class KrakenLoaderPlugin extends Plugin {
     private void resetDiscordButton(JButton discordButton) {
         discordButton.setText(SIGN_IN_DISCORD_BUTTON_TEXT);
         discordButton.addActionListener(discordOAuthFlow());
+    }
+
+    public void syncPlugins() {
+        CognitoUser user = credentialManager.loadUserCredentials();
+        Map<String, List<PreSignedURL>> preSignedUrls = krakenClient.createPresignedUrl(user.getCredentials());
+        if(preSignedUrls != null) {
+            for (PreSignedURL url : preSignedUrls.get("urls")) {
+                krakenPluginManager.loadPlugin(url);
+            }
+        }
+
+        // Start all loaded plugins
+        krakenPluginManager.startKrakenPlugins(user);
+        pluginListPanelProvider.get().rebuildPluginList();
     }
 
     /**
@@ -140,6 +144,8 @@ public class KrakenLoaderPlugin extends Plugin {
                         credentialManager.persistUserCredentials(cognitoUser);
                         btn.addActionListener(evt -> disconnectDiscord(cognitoUser, btn));
                         btn.setText(DISCONNECT_DISCORD_BUTTON_TEXT);
+
+                        syncPlugins();
                     })
                     .exceptionally(throwable -> {
                         log.error("Authentication failed: {}", throwable.getMessage());
