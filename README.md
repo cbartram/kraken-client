@@ -20,7 +20,7 @@
 </div>
 
 This is a RuneLite plugin which side loads the Kraken suite of essential plugins into the RuneLite client. This client is not associated with Jagex or RuneLite in any way.
-Currently, all plugins are released for free at our discord: INSERT_LINK. Some features this client offers are:
+Currently, all plugins are released for free at [our discord here](https://discord.gg/Jxfxr3Zme2). Some features this client offers are:
 
 - Discord authentication and sign up / sign in
 - Auto plugin loading (and automatic plugin updates)
@@ -55,7 +55,7 @@ Follow the steps below to start using the Kraken client.
 ## Getting Access to Plugins
 
 - Within the Kraken client in the sidebar click "Sign in with Discord" to link your discord account
-- Join our discord here. 
+- [Join our discord here](https://discord.gg/Jxfxr3Zme2). 
 - Create a ticket for free access to the plugins. You will receive a license key which you enter into the plugins configuration to use the plugin.
 
 **Note: There are security restrictions in place for this client. Plugin usage is limited to 1 machine per Discord account. When you link your Discord
@@ -79,9 +79,11 @@ Re-launch the Kraken client.
 
 ### Mac
 On Mac you can check your java home location in a terminal window by using: echo $JAVA_HOME. You can set your java home variable by
-creating a file called: .bash_profile in your home directory (/Users/your-name/.bash_profile). In the bash profile file add the following line:
+creating a file called: `.bash_profile` in your home directory (`/Users/your-name/.bash_profile`). In the bash profile file add the following line:
 
-export JAVA_HOME=<Path to your installed eclipse temurin location>
+`export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home`
+
+_Note: Your installed Eclipse Temurin JDK location may vary. Double check._
 
 # Getting Started (Development)
 
