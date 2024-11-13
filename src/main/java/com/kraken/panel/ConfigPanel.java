@@ -148,7 +148,16 @@ public class ConfigPanel extends PluginPanel {
 		title.setForeground(Color.WHITE);
 		title.setToolTipText("<html>" + name + ":<br>" + pluginConfig.getDescription() + "</html>");
 
+		refreshPluginState();
+		rebuild();
+	}
+
+	private void refreshPluginState() {
 		if (pluginConfig.getPlugin() != null) {
+			for(ActionListener l : pluginToggle.getActionListeners()) {
+				pluginToggle.removeActionListener(l);
+			}
+
 			pluginToggle.setConflicts(pluginConfig.getConflicts());
 			pluginToggle.setSelected(pluginManager.isPluginEnabled(pluginConfig.getPlugin()));
 			if(pluginToggle.isSelected()) {
@@ -156,21 +165,15 @@ public class ConfigPanel extends PluginPanel {
 			}
 
 			pluginToggle.addItemListener(i -> {
-				if (pluginToggle.isSelected()) {
-					if(pluginConfig.getVerified()) {
-						pluginList.startPlugin(pluginConfig.getPlugin());
-					}
-				} else {
-					if(pluginConfig.getVerified()) {
-						pluginList.stopPlugin(pluginConfig.getPlugin());
-					}
+				if (pluginToggle.isSelected() && pluginConfig.getVerified()) {
+					pluginList.startPlugin(pluginConfig.getPlugin());
+				} else if(pluginConfig.getVerified()) {
+					pluginList.stopPlugin(pluginConfig.getPlugin());
 				}
 			});
 		} else {
 			pluginToggle.setVisible(false);
 		}
-
-		rebuild();
 	}
 
 	private void toggleSection(ConfigSectionDescriptor csd, JButton button, JPanel contents) {
@@ -411,7 +414,6 @@ public class ConfigPanel extends PluginPanel {
 
 				if(cid.getItem().keyName().equals("licenseKey")) {
 					log.info("License key field changed. Re-validating license: {}", textField.getText());
-					// TODO Re-validate license key and update the plugin list, and config panel accordingly
 					ValidateLicenseRequest req = new ValidateLicenseRequest(krakenPluginManager.getUser().getCredentials(), textField.getText(), HardwareUtils.getHardwareId());
 					String name = pluginConfig.getPlugin().getName();
 					if(krakenPluginManager.hasValidLicense(req)) {
@@ -423,6 +425,7 @@ public class ConfigPanel extends PluginPanel {
 					}
 
 					pluginList.rebuildPluginList();
+					refreshPluginState();
 				}
 
 				changeConfiguration(textField, cd, cid);
