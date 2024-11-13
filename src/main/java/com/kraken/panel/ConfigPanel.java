@@ -16,6 +16,7 @@ import net.runelite.client.events.ExternalPluginsChanged;
 import net.runelite.client.events.PluginChanged;
 import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.DynamicGridLayout;
@@ -416,16 +417,32 @@ public class ConfigPanel extends PluginPanel {
 					log.info("License key field changed. Re-validating license: {}", textField.getText());
 					ValidateLicenseRequest req = new ValidateLicenseRequest(krakenPluginManager.getUser().getCredentials(), textField.getText(), HardwareUtils.getHardwareId());
 					String name = pluginConfig.getPlugin().getName();
-					if(krakenPluginManager.hasValidLicense(req)) {
-						log.info("Plugin: {} has a valid license.", name);
-						krakenPluginManager.getVerifiedPlugins().put(name, true);
-					} else {
-						log.info("Plugin: {} has an invalid license.", name);
-						krakenPluginManager.getVerifiedPlugins().put(name, false);
-					}
+					Optional<Plugin> pluginOptional = pluginManager.getPlugins().stream().filter(p -> p.getName().equals(name)).findFirst();
+					Plugin plugin;
 
-					pluginList.rebuildPluginList();
-					refreshPluginState();
+					try {
+						// Check license, update UI, and start/stop plugins depending on license status.
+						if (pluginOptional.isPresent()) {
+							plugin = pluginOptional.get();
+							if (krakenPluginManager.hasValidLicense(req)) {
+								log.info("Plugin: {} has a valid license.", name);
+								krakenPluginManager.getVerifiedPlugins().put(name, true);
+								pluginManager.startPlugin(plugin);
+							} else {
+								log.info("Plugin: {} has an invalid license.", name);
+								krakenPluginManager.getVerifiedPlugins().put(name, false);
+								pluginManager.stopPlugin(plugin);
+							}
+
+							pluginList.rebuildPluginList();
+							refreshPluginState();
+						} else {
+							log.error("Could not find plugin in list of plugins which matches name: {}. Failed to enable/disable plugin.", name);
+						}
+					} catch (PluginInstantiationException err) {
+						log.error("Failed to instantiate plugin: {}. Error = {}", name, err.getMessage());
+						err.printStackTrace();
+					}
 				}
 
 				changeConfiguration(textField, cd, cid);

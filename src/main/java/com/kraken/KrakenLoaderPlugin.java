@@ -58,15 +58,18 @@ public class KrakenLoaderPlugin extends Plugin {
 
     @Override
     protected void startUp() {
+        // Add the Kraken plugin as a valid and verified plugin so it gets loaded into the list of plugins.
+        krakenPluginManager.getVerifiedPlugins().put("Kraken Plugins", true);
+        krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
+
         RootPanel panelRoot = rootPanelProvider.get();
         KrakenPluginListPanel panel = pluginListPanelProvider.get();
         boolean userAuthenticated = startAuthFlow(panel.getDiscordButton());
 
         if(userAuthenticated) {
-           syncPlugins();
+            syncPlugins();
         }
 
-        krakenPluginManager.getPluginMap().put("Kraken Plugins", this);
         panel.rebuildPluginList();
 
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "images/kraken.png");

@@ -179,12 +179,20 @@ public class KrakenPluginListPanel extends PluginPanel {
 						.map(Plugin::getName)
 						.collect(Collectors.toList());
 
+					// This will be null if the user isn't logged in.
+					boolean pluginVerified;
+					if(krakenPluginManager.getVerifiedPlugins().get(plugin.getName()) == null) {
+						pluginVerified = false;
+					} else {
+						pluginVerified = krakenPluginManager.getVerifiedPlugins().get(plugin.getName());
+					}
+
 					return new PluginMetadata(
 						descriptor.name(),
 						descriptor.description(),
 						descriptor.tags(),
 						plugin,
-						krakenPluginManager.getVerifiedPlugins().get(plugin.getName()),
+						pluginVerified,
 						config,
 						configDescriptor,
 						conflicts);
