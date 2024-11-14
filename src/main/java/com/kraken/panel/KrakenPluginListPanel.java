@@ -172,12 +172,27 @@ public class KrakenPluginListPanel extends PluginPanel {
 				.filter(plugin -> krakenPluginManager.getPluginMap().get(plugin.getName()) != null)
 				.map(plugin ->
 				{
+					log.info("Creating metadata for plugin: {}", plugin.getName());
 					PluginDescriptor descriptor = plugin.getClass().getAnnotation(PluginDescriptor.class);
+
+					log.info("Plugin descriptor is null: {}", descriptor == null);
+
 					Config config = pluginManager.getPluginConfigProxy(plugin);
+
+					if(config == null) {
+						log.info("Unable to get plugin config proxy for plugin: {}", plugin.getName());
+					}
+
 					ConfigDescriptor configDescriptor = config == null ? null : configManager.getConfigDescriptor(config);
 					List<String> conflicts = pluginManager.conflictsForPlugin(plugin).stream()
 						.map(Plugin::getName)
 						.collect(Collectors.toList());
+
+					log.info("Config: {}", config);
+
+					if(configDescriptor == null) {
+						log.info("Config Descriptor is null. Will be unable to show config panel.");
+					}
 
 					// This will be null if the user isn't logged in.
 					boolean pluginVerified;
@@ -187,7 +202,7 @@ public class KrakenPluginListPanel extends PluginPanel {
 						pluginVerified = krakenPluginManager.getVerifiedPlugins().get(plugin.getName());
 					}
 
-					return new PluginMetadata(
+					PluginMetadata meta = new PluginMetadata(
 						descriptor.name(),
 						descriptor.description(),
 						descriptor.tags(),
@@ -196,6 +211,8 @@ public class KrakenPluginListPanel extends PluginPanel {
 						config,
 						configDescriptor,
 						conflicts);
+					log.info("Plugin Metadata: {}", meta);
+					return meta;
 				})
 		)
 			.map(desc ->

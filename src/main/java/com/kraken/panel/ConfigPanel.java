@@ -191,6 +191,13 @@ public class ConfigPanel extends PluginPanel {
 
 		ConfigDescriptor cd = pluginConfig.getConfigDescriptor();
 
+		if(cd != null) {
+			log.info("Successfully retrieved config descriptor: {} with {} config items and {} sections.", cd, cd.getItems().size(), cd.getSections().size());
+		} else {
+			log.info("Config descriptor cd is null.");
+			return;
+		}
+
 		final Map<String, JPanel> sectionWidgets = new HashMap<>();
 		final Map<ConfigObject, JPanel> topLevelPanels = new TreeMap<>((a, b) ->
 			ComparisonChain.start()
@@ -532,8 +539,14 @@ public class ConfigPanel extends PluginPanel {
 		box.setRenderer(listCellRenderer);
 		box.setPreferredSize(new Dimension(box.getPreferredSize().width, 22));
 
+		String name = configManager.getConfiguration(cd.getGroup().value(), cid.getItem().keyName());
+		if(name == null) {
+			log.info("Null name while trying to create combo box.");
+			return box;
+		}
+
 		try {
-			Enum<?> selectedItem = Enum.valueOf(type, configManager.getConfiguration(cd.getGroup().value(), cid.getItem().keyName()));
+			Enum<?> selectedItem = Enum.valueOf(type, name);
 			box.setSelectedItem(selectedItem);
 			box.setToolTipText(Text.titleCase(selectedItem));
 		} catch (IllegalArgumentException ex) {

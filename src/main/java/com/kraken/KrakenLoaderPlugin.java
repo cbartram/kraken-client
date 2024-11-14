@@ -26,7 +26,7 @@ import java.util.Map;
 @PluginDescriptor(
         name = "Kraken Plugins",
         description = "Loads the Kraken Plugins.",
-        hidden = false,
+        hidden = true,
         tags = {"kraken", "plugin", "loader"}
 )
 public class KrakenLoaderPlugin extends Plugin {
@@ -53,6 +53,7 @@ public class KrakenLoaderPlugin extends Plugin {
     private KrakenCredentialManager credentialManager;
 
     private NavigationButton navButton;
+    private boolean pluginsSynced = false;
     private static final String DISCONNECT_DISCORD_BUTTON_TEXT = "Disconnect Discord";
     private static final String SIGN_IN_DISCORD_BUTTON_TEXT = "Sign-in with Discord";
 
@@ -66,8 +67,9 @@ public class KrakenLoaderPlugin extends Plugin {
         KrakenPluginListPanel panel = pluginListPanelProvider.get();
         boolean userAuthenticated = startAuthFlow(panel.getDiscordButton());
 
-        if(userAuthenticated) {
+        if(userAuthenticated && !pluginsSynced) {
             syncPlugins();
+            pluginsSynced = true;
         }
 
         panel.rebuildPluginList();
@@ -100,7 +102,6 @@ public class KrakenLoaderPlugin extends Plugin {
         // Start all loaded plugins
         krakenPluginManager.setUser(user);
         krakenPluginManager.startKrakenPlugins();
-        pluginListPanelProvider.get().rebuildPluginList();
     }
 
     /**
